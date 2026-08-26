@@ -362,6 +362,26 @@ from src.stick_sizing import export_stick_sizing_report
 export_stick_sizing_report(report, "outputs/dimensionamento_palitos.json")
 ```
 
+Para uma saída compacta contendo apenas o total e a quantidade por membro:
+
+```python
+from src.stick_sizing import export_stick_counts
+
+print(report.total_required_sticks)
+export_stick_counts(report, "outputs/quantidade_palitos.json")
+```
+
+O dimensionamento também pode ser mostrado sobre a estrutura:
+
+```python
+from src.visualizer import plot_stick_sizing
+
+plot_stick_sizing(model, report)
+```
+
+Por padrão, o gráfico identifica somente as barras comprimidas. Use
+`show_non_compression=True` para mostrar também as demais barras.
+
 O campo `sum_of_member_section_counts` soma as quantidades nas seções das
 barras comprimidas, enquanto `compressed_lamination_length_m` informa a soma
 dos comprimentos dessas lâminas. Nenhum dos dois representa diretamente a

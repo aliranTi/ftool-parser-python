@@ -2,6 +2,7 @@ from typing import Any, Literal
 
 from .converter_anastruct import AnastructModel, to_anastruct
 from .models import FtoolModel
+from .stick_sizing import StickSizingReport
 
 
 ResultPlot = Literal[
@@ -118,6 +119,85 @@ def _customize_structure_labels(
                 zorder=12,
                 bbox=label_box,
             )
+
+
+def plot_stick_sizing(
+    model: FtoolModel,
+    report: StickSizingReport,
+    *,
+    show: bool = True,
+    show_node_ids: bool = True,
+    show_non_compression: bool = False,
+    scale: float = 1.0,
+    offset: tuple[float, float] = (0.0, 0.0),
+    figsize: tuple[float, float] = (10.0, 6.0),
+) -> Any:
+    """Mostra a quantidade dimensionada sobre cada membro da estrutura."""
+
+    analysis, figure = plot_ftool_model(
+        model,
+        show=False,
+        show_node_ids=show_node_ids,
+        show_member_ids=False,
+        scale=scale,
+        offset=offset,
+        figsize=figsize,
+    )
+    axis = figure.axes[0]
+    results = {item.ftool_id: item for item in report.members}
+    x_values = [node.x for node in model.nodes]
+    y_values = [node.y for node in model.nodes]
+    span = max(max(x_values) - min(x_values), max(y_values) - min(y_values))
+    label_offset = max(span * 0.025, 1e-6)
+
+    for member in model.members:
+        try:
+            sizing = results[member.id]
+        except KeyError as exc:
+            raise ValueError(
+                f"Barra FTool {member.id} não encontrada no relatório"
+            ) from exc
+
+        if sizing.required_sticks is None and not show_non_compression:
+            continue
+
+        if sizing.required_sticks is None:
+            label = f"{sizing.id}\nsem compressão"
+            color = "dimgray"
+        else:
+            suffix = "palito" if sizing.required_sticks == 1 else "palitos"
+            label = f"{sizing.id}\n{sizing.required_sticks} {suffix}"
+            color = "saddlebrown"
+
+        dx = member.x2 - member.x1
+        dy = member.y2 - member.y1
+        middle_x = (member.x1 + member.x2) / 2
+        middle_y = (member.y1 + member.y2) / 2
+        axis.text(
+            middle_x - dy / member.length * label_offset,
+            middle_y + dx / member.length * label_offset,
+            label,
+            color=color,
+            fontsize=8,
+            fontweight="bold",
+            horizontalalignment="center",
+            verticalalignment="center",
+            zorder=13,
+            bbox={
+                "facecolor": "white",
+                "edgecolor": color,
+                "alpha": 0.85,
+                "pad": 1.5,
+            },
+        )
+
+    axis.set_title(
+        "Palitos por membro comprimido — "
+        f"total dimensionado: {report.total_required_sticks}"
+    )
+    if show:
+        analysis.system.plotter.plot()
+    return figure
 
 
 def plot_anastruct_result(

@@ -153,6 +153,11 @@ class StickSizingReport:
         return sum(item.required_sticks or 0 for item in self.members)
 
     @property
+    def total_required_sticks(self) -> int:
+        """Soma das quantidades nas seções das barras comprimidas."""
+        return self.sum_of_member_section_counts
+
+    @property
     def compressed_lamination_length_m(self) -> float:
         return sum(
             (item.required_sticks or 0) * item.member_length_m
@@ -178,10 +183,39 @@ class StickSizingReport:
             "summary": {
                 "member_count": len(self.members),
                 "compression_member_count": self.compression_members,
+                "total_required_sticks": self.total_required_sticks,
                 "sum_of_member_section_counts": self.sum_of_member_section_counts,
                 "compressed_lamination_length_m": self.compressed_lamination_length_m,
             },
             "members": [item.to_dict() for item in self.members],
+        }
+
+    def counts_to_dict(self) -> Dict[str, Any]:
+        """Retorna uma visão compacta do total e da quantidade por membro."""
+        return {
+            "schema": "ftool-parser-python.stick-counts",
+            "schema_version": 1,
+            "scope": "compression_members",
+            "units": {"force": "N", "length": "m"},
+            "total_required_sticks": self.total_required_sticks,
+            "compression_member_count": self.compression_members,
+            "compressed_lamination_length_m": self.compressed_lamination_length_m,
+            "members": [
+                {
+                    "id": item.id,
+                    "ftool_id": item.ftool_id,
+                    "start_node": item.start_node,
+                    "end_node": item.end_node,
+                    "length": item.member_length_m,
+                    "compression_demand": item.compression_demand_n,
+                    "required_sticks": item.required_sticks,
+                    "status": item.status,
+                    "governing_utilization": (
+                        item.check.governing_utilization if item.check else None
+                    ),
+                }
+                for item in self.members
+            ],
         }
 
 
@@ -309,18 +343,18 @@ def export_stick_sizing_report(
 ) -> Path:
     """Grava o relatório de dimensionamento em JSON."""
 
-    output_path = Path(destination)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", encoding="utf-8", newline="\n") as file:
-        json.dump(
-            report.to_dict(),
-            file,
-            ensure_ascii=False,
-            indent=indent,
-            allow_nan=False,
-        )
-        file.write("\n")
-    return output_path
+    return _write_json(report.to_dict(), destination, indent)
+
+
+def export_stick_counts(
+    report: StickSizingReport,
+    destination: Union[str, Path],
+    *,
+    indent: int = 2,
+) -> Path:
+    """Grava somente o total e a quantidade de palitos por membro."""
+
+    return _write_json(report.counts_to_dict(), destination, indent)
 
 
 def _size_member(
@@ -389,3 +423,22 @@ def _compression_reduction_factor(
     discriminant = max(curve_value**2 - relative_slenderness**2, 0.0)
     reduction = 1.0 / (curve_value + math.sqrt(discriminant))
     return min(reduction, 1.0)
+
+
+def _write_json(
+    data: Dict[str, Any],
+    destination: Union[str, Path],
+    indent: int,
+) -> Path:
+    output_path = Path(destination)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8", newline="\n") as file:
+        json.dump(
+            data,
+            file,
+            ensure_ascii=False,
+            indent=indent,
+            allow_nan=False,
+        )
+        file.write("\n")
+    return output_path
