@@ -23,6 +23,7 @@ Internacional antes de serem expostas pela API.
 - Identificação de rótulas e restrições de deformação das barras.
 - Conversão de geometria, propriedades, apoios e cargas para o anaStruct.
 - Solução estrutural e plots de geometria e resultados com o anaStruct.
+- Exportação versionada dos resultados axiais para dicionário ou JSON.
 - Conversão do modelo para dicionário serializável em JSON.
 - Testes de regressão e validação visual no notebook.
 
@@ -233,6 +234,65 @@ Os nomes aceitos são `reactions`, `axial`, `shear`, `moment` e
 correspondente do anaStruct, por exemplo `verbosity=1`, `scale=1.2` ou
 `figsize=(12, 7)`.
 
+## Exportação da análise axial
+
+Os resultados podem ser obtidos como um dicionário Python ou gravados em um
+JSON versionado:
+
+```python
+from src.converter_anastruct import to_anastruct
+from src.exporter import axial_analysis_to_dict, export_axial_analysis
+
+analysis = to_anastruct(model, solve=True)
+
+data = axial_analysis_to_dict(model, analysis, name="ponte_3")
+export_axial_analysis(
+    model,
+    analysis,
+    "outputs/ponte_3_axial.json",
+    name="ponte_3",
+)
+```
+
+O documento contém versão do schema, unidades, convenção de sinais, nós,
+conectividade, carregamentos, reações e resultados por barra. Força axial
+positiva representa tração e força negativa representa compressão. Cada barra
+recebe uma classificação `tension`, `compression`, `mixed` ou `zero`.
+
+Por padrão são exportados os valores inicial, final, mínimo e máximo. Para
+incluir os pontos usados pelo diagrama axial do anaStruct:
+
+```python
+export_axial_analysis(
+    model,
+    analysis,
+    "outputs/ponte_3_axial_detalhado.json",
+    include_samples=True,
+)
+```
+
+Trecho do JSON gerado:
+
+```json
+{
+  "schema": "ftool-parser-python.axial-analysis",
+  "schema_version": 1,
+  "units": {"length": "m", "force": "N"},
+  "members": [
+    {
+      "id": "m1",
+      "start_node": "n1",
+      "end_node": "n2",
+      "axial_force": {
+        "start": 153.2833576970673,
+        "end": 153.2833576970673,
+        "state": "tension"
+      }
+    }
+  ]
+}
+```
+
 ## Conversão para dicionário/JSON
 
 ```python
@@ -276,6 +336,7 @@ ftool-parser-python/
 ├── inputs/                 # Arquivos FTL usados como fixtures
 ├── src/
 │   ├── converter_anastruct.py # Conversão e interface de análise
+│   ├── exporter.py             # Exportação da análise axial para JSON
 │   ├── ftl_reader.py          # Leitura textual com encoding latin-1
 │   ├── models.py              # Dataclasses do modelo estrutural
 │   ├── parser.py              # Parser sequencial FTL 4.00/4.01
