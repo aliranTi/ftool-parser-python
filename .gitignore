@@ -53,6 +53,9 @@ htmlcov/
 .ipynb_checkpoints/
 temp/
 
+
+inputs/*
+
 # OS files
 .DS_Store
 Thumbs.db
