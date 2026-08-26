@@ -294,23 +294,24 @@ Trecho do JSON gerado:
 }
 ```
 
-## Dimensionamento dos palitos à compressão
+## Dimensionamento axial dos palitos
 
 O dimensionador procura primeiro a menor quantidade de **camadas** que atende
-à compressão e à instabilidade nos dois eixos. Depois, usa o comprimento
-do membro e o comprimento comercial para estimar a quantidade física de
-palitos:
+à solicitação axial. Na compressão, verifica também a instabilidade nos dois
+eixos. Na tração paralela às fibras, aplica `sigma = Ft / (n * b * hp)` em
+`N`, `mm²` e `MPa`. Depois, usa o comprimento do membro e o comprimento
+comercial para estimar a quantidade física de palitos:
 
 ```python
-from src.stick_sizing import size_compression_members
+from src.stick_sizing import size_axial_members
 
-report = size_compression_members(model, analysis)
+report = size_axial_members(model, analysis)
 
 for member in report.members:
     if member.total_sticks is not None:
         print(
             member.id,
-            f"{member.compression_demand_n:.2f} N",
+            member.governing_mode,
             f"{member.required_layers} camadas",
             f"{member.sticks_per_layer} palitos/camada",
             f"{member.total_sticks} palitos no total",
@@ -326,6 +327,7 @@ As hipóteses padrão, adaptadas do projeto
 | Largura e espessura | lidas da seção retangular do `.ftl` |
 | Comprimento comercial | `115 mm` |
 | Sobreposição por emenda | `0 mm` |
+| Resistência média à tração paralela | `66 MPa` |
 | Resistência característica à compressão | `25 MPa` |
 | Módulo de elasticidade médio | `13000 MPa` |
 | `kmod1` | `1.1` |
@@ -333,6 +335,7 @@ As hipóteses padrão, adaptadas do projeto
 | `gamma_m` | `1.0` |
 | `beta_c` | `0.1` |
 | Fator de comprimento efetivo | `1.0` |
+| Fator da força de tração | `1.0` |
 
 Todos os valores podem ser substituídos:
 
@@ -341,14 +344,15 @@ from src.stick_sizing import (
     StickGeometry,
     StickSizingConfig,
     WoodCompressionProperties,
-    size_compression_members,
+    WoodTensionProperties,
+    size_axial_members,
 )
 
 config = StickSizingConfig(
     stick=StickGeometry(
-        width_mm=10.0,
-        thickness_mm=2.0,
-        commercial_length_mm=120.0,
+        width_mm=8.0,
+        thickness_mm=1.86,
+        commercial_length_mm=115.0,
     ),
     wood=WoodCompressionProperties(
         strength_class="ensaio_proprio",
@@ -356,13 +360,34 @@ config = StickSizingConfig(
         mean_elasticity_mpa=11_500.0,
         gamma_m=1.4,
     ),
+    tension=WoodTensionProperties(ft0m_mpa=66.0),
     effective_length_factor=0.8,
     design_force_factor=1.5,
+    tension_force_factor=1.0,
     use_section_geometry=False,
-    splice_overlap_mm=10.0,
+    splice_overlap_mm=0.0,
 )
 
-report = size_compression_members(model, analysis, config)
+report = size_axial_members(model, analysis, config)
+```
+
+Como `1 MPa = 1 N/mm²`, a verificação de uma seção pode ser feita
+diretamente com a força em N:
+
+```python
+from src.stick_sizing import StickGeometry, StickSizingConfig, check_tension_section
+
+tension_example = StickSizingConfig(
+    stick=StickGeometry(width_mm=8.0, thickness_mm=1.86),
+    use_section_geometry=False,
+)
+
+check = check_tension_section(
+    tension_force_n=2_000.0,
+    layer_count=3,
+    config=tension_example,
+)
+print(check.area_mm2, check.stress_mpa, check.passes)
 ```
 
 O relatório também pode ser gravado em JSON:
@@ -391,9 +416,9 @@ from src.visualizer import plot_stick_sizing
 plot_stick_sizing(model, report)
 ```
 
-Por padrão, o gráfico identifica somente as barras comprimidas e apresenta,
-separadamente, camadas e palitos físicos por membro. Use
-`show_non_compression=True` para mostrar também as demais barras.
+O gráfico diferencia compressão, tração e membros mantidos com a quantidade
+mínima construtiva de camadas, apresentando também os palitos físicos por
+membro.
 
 Quando `use_section_geometry=True`, a largura e a espessura são obtidas dos
 dois valores da seção retangular do `.ftl`. Se uma definição com o mesmo nome,
@@ -404,8 +429,9 @@ Para cada membro, `required_layers` é a quantidade transversal,
 `sticks_per_layer` é a quantidade longitudinal e `total_sticks` é o produto
 das duas. `total_physical_sticks` soma os palitos físicos dos membros. Essa é
 uma estimativa sem perdas de corte; ajuste `commercial_length_mm` e
-`splice_overlap_mm` para representar o material usado. Barras somente
-tracionadas são marcadas como `not_in_compression` e não são dimensionadas.
+`splice_overlap_mm` para representar o material usado. Membros sem solicitação
+axial recebem `minimum_member_layers=1` por padrão, pois continuam existindo
+fisicamente na ponte.
 
 > Este cálculo é uma ferramenta de pré-dimensionamento baseada nas hipóteses
 > informadas. As propriedades reais devem ser obtidas por ensaio e os critérios

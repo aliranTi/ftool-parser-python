@@ -167,11 +167,21 @@ def plot_stick_sizing(
         else:
             layer_suffix = "camada" if sizing.required_layers == 1 else "camadas"
             stick_suffix = "palito" if sizing.total_sticks == 1 else "palitos"
+            mode_label = {
+                "compression": "compressão",
+                "tension": "tração",
+                "minimum": "mínimo",
+            }.get(sizing.governing_mode, "axial")
             label = (
-                f"{sizing.id}\n{sizing.required_layers} {layer_suffix}\n"
+                f"{sizing.id} · {mode_label}\n"
+                f"{sizing.required_layers} {layer_suffix}\n"
                 f"{sizing.total_sticks} {stick_suffix}"
             )
-            color = "saddlebrown"
+            color = {
+                "compression": "saddlebrown",
+                "tension": "royalblue",
+                "minimum": "dimgray",
+            }.get(sizing.governing_mode, "dimgray")
 
         dx = member.x2 - member.x1
         dy = member.y2 - member.y1
@@ -196,7 +206,7 @@ def plot_stick_sizing(
         )
 
     axis.set_title(
-        "Palitos físicos estimados por membro comprimido — "
+        "Dimensionamento axial dos palitos — "
         f"total: {report.total_physical_sticks}"
     )
     if show:
