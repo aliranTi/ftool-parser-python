@@ -24,6 +24,7 @@ Internacional antes de serem expostas pela API.
 - Conversão de geometria, propriedades, apoios e cargas para o anaStruct.
 - Solução estrutural e plots de geometria e resultados com o anaStruct.
 - Exportação versionada dos resultados axiais para dicionário ou JSON.
+- Dimensionamento da quantidade de palitos nas barras comprimidas.
 - Conversão do modelo para dicionário serializável em JSON.
 - Testes de regressão e validação visual no notebook.
 
@@ -293,6 +294,86 @@ Trecho do JSON gerado:
 }
 ```
 
+## Dimensionamento dos palitos à compressão
+
+O dimensionador procura a menor quantidade inteira de palitos empilhados que
+atende simultaneamente à compressão e à instabilidade nos dois eixos:
+
+```python
+from src.stick_sizing import size_compression_members
+
+report = size_compression_members(model, analysis)
+
+for member in report.members:
+    if member.required_sticks is not None:
+        print(
+            member.id,
+            f"{member.compression_demand_n:.2f} N",
+            f"{member.required_sticks} palitos",
+            f"utilização={member.check.governing_utilization:.3f}",
+        )
+```
+
+As hipóteses padrão, adaptadas do projeto
+[app_compressao_pontes](https://github.com/Rated84/app_compressao_pontes), são:
+
+| Parâmetro | Valor padrão |
+|---|---:|
+| Largura do palito | `8.58 mm` |
+| Espessura do palito | `1.94 mm` |
+| Resistência característica à compressão | `25 MPa` |
+| Módulo de elasticidade médio | `13000 MPa` |
+| `kmod1` | `1.1` |
+| `kmod2` | `0.9` |
+| `gamma_m` | `1.0` |
+| `beta_c` | `0.1` |
+| Fator de comprimento efetivo | `1.0` |
+
+Todos os valores podem ser substituídos:
+
+```python
+from src.stick_sizing import (
+    StickGeometry,
+    StickSizingConfig,
+    WoodCompressionProperties,
+    size_compression_members,
+)
+
+config = StickSizingConfig(
+    stick=StickGeometry(width_mm=10.0, thickness_mm=2.0),
+    wood=WoodCompressionProperties(
+        strength_class="ensaio_proprio",
+        characteristic_strength_mpa=22.0,
+        mean_elasticity_mpa=11_500.0,
+        gamma_m=1.4,
+    ),
+    effective_length_factor=0.8,
+    design_force_factor=1.5,
+)
+
+report = size_compression_members(model, analysis, config)
+```
+
+O relatório também pode ser gravado em JSON:
+
+```python
+from src.stick_sizing import export_stick_sizing_report
+
+export_stick_sizing_report(report, "outputs/dimensionamento_palitos.json")
+```
+
+O campo `sum_of_member_section_counts` soma as quantidades nas seções das
+barras comprimidas, enquanto `compressed_lamination_length_m` informa a soma
+dos comprimentos dessas lâminas. Nenhum dos dois representa diretamente a
+quantidade de palitos comerciais a comprar, pois esse total também depende do
+comprimento disponível, emendas, sobreposições e perdas. Barras somente
+tracionadas são marcadas como `not_in_compression` e não são dimensionadas por
+este cálculo.
+
+> Este cálculo é uma ferramenta de pré-dimensionamento baseada nas hipóteses
+> informadas. As propriedades reais devem ser obtidas por ensaio e os critérios
+> de segurança devem ser definidos pelo responsável pelo projeto.
+
 ## Conversão para dicionário/JSON
 
 ```python
@@ -340,6 +421,7 @@ ftool-parser-python/
 │   ├── ftl_reader.py          # Leitura textual com encoding latin-1
 │   ├── models.py              # Dataclasses do modelo estrutural
 │   ├── parser.py              # Parser sequencial FTL 4.00/4.01
+│   ├── stick_sizing.py        # Dimensionamento das barras comprimidas
 │   ├── utils.py               # Utilitários de parsing numérico
 │   └── visualizer.py          # Plots fornecidos pelo anaStruct
 ├── notebook.ipynb          # Testes de regressão e gráficos
