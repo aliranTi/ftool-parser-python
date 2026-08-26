@@ -1,6 +1,6 @@
 # ftool-parser-python
 
-Parser em Python para arquivos `.ftl` do FTool 4.00 e 4.01.
+Parser e conversor em Python para arquivos `.ftl` do FTool 4.00 e 4.01.
 
 O projeto lê o arquivo textual do FTool, reconstrói a topologia estrutural e
 entrega um modelo Python com materiais, seções, barras, nós, apoios, cargas
@@ -21,7 +21,8 @@ Internacional antes de serem expostas pela API.
 - Leitura e associação de cargas pontuais nodais.
 - Leitura das linhas de cota usadas na representação gráfica.
 - Identificação de rótulas e restrições de deformação das barras.
-- Visualização da geometria, apoios, IDs e cargas com Matplotlib.
+- Conversão de geometria, propriedades, apoios e cargas para o anaStruct.
+- Solução estrutural e plots de geometria e resultados com o anaStruct.
 - Conversão do modelo para dicionário serializável em JSON.
 - Testes de regressão e validação visual no notebook.
 
@@ -68,7 +69,7 @@ parser como `Fy = -367.88 N`.
 ## Requisitos
 
 - Python 3.10 ou superior.
-- Matplotlib 3.10 ou superior para visualização.
+- anaStruct 1.7 para análise e visualização.
 - Jupyter opcional para executar o notebook.
 
 ## Instalação
@@ -171,31 +172,66 @@ parser.debug()
 O resumo mostra nós, conectividade, comprimentos, materiais, seções, apoios e
 cargas associadas.
 
+## Conversão e análise com anaStruct
+
+```python
+from src.converter_anastruct import to_anastruct
+
+analysis = to_anastruct(model)
+analysis.solve()
+
+print(analysis.get_reaction_results(ftool_node_id=1))
+print(analysis.get_member_results(ftool_member_id=1))
+```
+
+O objeto `analysis.system` é uma instância de `anastruct.SystemElements`. Os
+dicionários `analysis.node_ids` e `analysis.member_ids` relacionam os IDs do
+parser aos IDs criados pelo anaStruct.
+
+Barras com momento de inércia nulo ou rótulas nas duas extremidades são
+convertidas em elementos de treliça. Barras com rigidez à flexão são convertidas
+em elementos de pórtico, com liberações rotacionais de extremidade quando
+indicadas pelo FTool.
+
 ## Visualização
+
+O plot da estrutura usa diretamente o renderizador do anaStruct:
 
 ```python
 from src.visualizer import plot_ftool_model
 
-fig, ax = plot_ftool_model(
-    model,
-    show_node_ids=True,
-    show_member_ids=True,
-    show_dimensions=False,
-)
+analysis, _ = plot_ftool_model(model)
 ```
 
-Para desenhar também as linhas auxiliares de cota:
-
-```python
-plot_ftool_model(model, show_dimensions=True)
-```
+Os identificadores são exibidos como `n1`, `n2`, ... para nós e `m1`, `m2`,
+... para barras. Cargas verticais negativas, como `Fy = -367.88 N`, são
+desenhadas apontando para baixo. As identificações podem ser ocultadas
+individualmente com `show_node_ids=False` ou `show_member_ids=False`.
 
 Em scripts que precisam salvar ou manipular a figura sem abrir uma janela:
 
 ```python
-fig, ax = plot_ftool_model(model, show=False)
+analysis, fig = plot_ftool_model(model, show=False)
 fig.savefig("estrutura.png", dpi=150, bbox_inches="tight")
 ```
+
+Para visualizar esforços, reações ou deslocamentos, resolva primeiro o modelo:
+
+```python
+from src.visualizer import plot_anastruct_result
+
+analysis.solve()
+plot_anastruct_result(analysis, "reactions")
+plot_anastruct_result(analysis, "axial")
+plot_anastruct_result(analysis, "shear")
+plot_anastruct_result(analysis, "moment")
+plot_anastruct_result(analysis, "displacement")
+```
+
+Os nomes aceitos são `reactions`, `axial`, `shear`, `moment` e
+`displacement`. Argumentos adicionais são encaminhados ao método de plot
+correspondente do anaStruct, por exemplo `verbosity=1`, `scale=1.2` ou
+`figsize=(12, 7)`.
 
 ## Conversão para dicionário/JSON
 
@@ -239,11 +275,12 @@ Os snapshots atuais são:
 ftool-parser-python/
 ├── inputs/                 # Arquivos FTL usados como fixtures
 ├── src/
-│   ├── ftl_reader.py       # Leitura textual com encoding latin-1
-│   ├── models.py           # Dataclasses do modelo estrutural
-│   ├── parser.py           # Parser sequencial FTL 4.00/4.01
-│   ├── utils.py            # Utilitários de parsing numérico
-│   └── visualizer.py       # Validação visual com Matplotlib
+│   ├── converter_anastruct.py # Conversão e interface de análise
+│   ├── ftl_reader.py          # Leitura textual com encoding latin-1
+│   ├── models.py              # Dataclasses do modelo estrutural
+│   ├── parser.py              # Parser sequencial FTL 4.00/4.01
+│   ├── utils.py               # Utilitários de parsing numérico
+│   └── visualizer.py          # Plots fornecidos pelo anaStruct
 ├── notebook.ipynb          # Testes de regressão e gráficos
 ├── requirements.txt
 └── README.md
@@ -260,6 +297,11 @@ ftool-parser-python/
   no modelo Python.
 - Seções provenientes de tabelas comerciais internas do FTool podem exigir um
   mapeamento específico de catálogo.
+- A conversão atual contempla cargas pontuais e momentos nodais. As demais
+  cargas ainda não chegam ao modelo público e, portanto, não são enviadas ao
+  anaStruct.
+- A opção do FTool para ignorar deformação axial não possui correspondência
+  segura no anaStruct e gera um erro explícito durante a conversão.
 - O arquivo `.ftl` é um formato proprietário e não possui especificação pública
   oficial; compatibilidade com variantes antigas ou futuras não é garantida.
 
@@ -268,4 +310,5 @@ ftool-parser-python/
 - Expor cargas distribuídas, lineares, térmicas e momentos de extremidade.
 - Representar recalques prescritos e casos de carregamento no modelo público.
 - Ampliar os fixtures e testes automatizados.
-- Criar exportadores para formatos de análise estrutural.
+- Ampliar a cobertura da conversão para o anaStruct conforme novas cargas forem
+  expostas pelo parser.

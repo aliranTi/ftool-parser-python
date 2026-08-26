@@ -1,1 +1,1 @@
-matplotlib>=3.10,<4
+anastruct==1.7.0
