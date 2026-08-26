@@ -296,8 +296,10 @@ Trecho do JSON gerado:
 
 ## Dimensionamento dos palitos à compressão
 
-O dimensionador procura a menor quantidade inteira de palitos empilhados que
-atende simultaneamente à compressão e à instabilidade nos dois eixos:
+O dimensionador procura primeiro a menor quantidade de **camadas** que atende
+à compressão e à instabilidade nos dois eixos. Depois, usa o comprimento
+do membro e o comprimento comercial para estimar a quantidade física de
+palitos:
 
 ```python
 from src.stick_sizing import size_compression_members
@@ -305,11 +307,13 @@ from src.stick_sizing import size_compression_members
 report = size_compression_members(model, analysis)
 
 for member in report.members:
-    if member.required_sticks is not None:
+    if member.total_sticks is not None:
         print(
             member.id,
             f"{member.compression_demand_n:.2f} N",
-            f"{member.required_sticks} palitos",
+            f"{member.required_layers} camadas",
+            f"{member.sticks_per_layer} palitos/camada",
+            f"{member.total_sticks} palitos no total",
             f"utilização={member.check.governing_utilization:.3f}",
         )
 ```
@@ -319,8 +323,9 @@ As hipóteses padrão, adaptadas do projeto
 
 | Parâmetro | Valor padrão |
 |---|---:|
-| Largura do palito | `8.58 mm` |
-| Espessura do palito | `1.94 mm` |
+| Largura e espessura | lidas da seção retangular do `.ftl` |
+| Comprimento comercial | `115 mm` |
+| Sobreposição por emenda | `0 mm` |
 | Resistência característica à compressão | `25 MPa` |
 | Módulo de elasticidade médio | `13000 MPa` |
 | `kmod1` | `1.1` |
@@ -340,7 +345,11 @@ from src.stick_sizing import (
 )
 
 config = StickSizingConfig(
-    stick=StickGeometry(width_mm=10.0, thickness_mm=2.0),
+    stick=StickGeometry(
+        width_mm=10.0,
+        thickness_mm=2.0,
+        commercial_length_mm=120.0,
+    ),
     wood=WoodCompressionProperties(
         strength_class="ensaio_proprio",
         characteristic_strength_mpa=22.0,
@@ -349,6 +358,8 @@ config = StickSizingConfig(
     ),
     effective_length_factor=0.8,
     design_force_factor=1.5,
+    use_section_geometry=False,
+    splice_overlap_mm=10.0,
 )
 
 report = size_compression_members(model, analysis, config)
@@ -367,7 +378,8 @@ Para uma saída compacta contendo apenas o total e a quantidade por membro:
 ```python
 from src.stick_sizing import export_stick_counts
 
-print(report.total_required_sticks)
+print(report.total_required_layers)  # camadas somadas entre os membros
+print(report.total_physical_sticks)  # palitos comerciais estimados
 export_stick_counts(report, "outputs/quantidade_palitos.json")
 ```
 
@@ -379,16 +391,21 @@ from src.visualizer import plot_stick_sizing
 plot_stick_sizing(model, report)
 ```
 
-Por padrão, o gráfico identifica somente as barras comprimidas. Use
+Por padrão, o gráfico identifica somente as barras comprimidas e apresenta,
+separadamente, camadas e palitos físicos por membro. Use
 `show_non_compression=True` para mostrar também as demais barras.
 
-O campo `sum_of_member_section_counts` soma as quantidades nas seções das
-barras comprimidas, enquanto `compressed_lamination_length_m` informa a soma
-dos comprimentos dessas lâminas. Nenhum dos dois representa diretamente a
-quantidade de palitos comerciais a comprar, pois esse total também depende do
-comprimento disponível, emendas, sobreposições e perdas. Barras somente
-tracionadas são marcadas como `not_in_compression` e não são dimensionadas por
-este cálculo.
+Quando `use_section_geometry=True`, a largura e a espessura são obtidas dos
+dois valores da seção retangular do `.ftl`. Se uma definição com o mesmo nome,
+diferindo apenas por maiúsculas/minúsculas, estiver incompleta, o dimensionador
+usa a equivalente que possua ambas as dimensões positivas.
+
+Para cada membro, `required_layers` é a quantidade transversal,
+`sticks_per_layer` é a quantidade longitudinal e `total_sticks` é o produto
+das duas. `total_physical_sticks` soma os palitos físicos dos membros. Essa é
+uma estimativa sem perdas de corte; ajuste `commercial_length_mm` e
+`splice_overlap_mm` para representar o material usado. Barras somente
+tracionadas são marcadas como `not_in_compression` e não são dimensionadas.
 
 > Este cálculo é uma ferramenta de pré-dimensionamento baseada nas hipóteses
 > informadas. As propriedades reais devem ser obtidas por ensaio e os critérios

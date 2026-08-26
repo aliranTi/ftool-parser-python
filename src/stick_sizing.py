@@ -1,11 +1,11 @@
 import json
 import math
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from .converter_anastruct import AnastructModel
-from .models import FtoolModel, Member
+from .models import FtoolModel, Member, Section
 
 
 class StickSizingError(ValueError):
@@ -18,9 +18,14 @@ class StickGeometry:
 
     width_mm: float = 8.58
     thickness_mm: float = 1.94
+    commercial_length_mm: float = 115.0
 
     def __post_init__(self) -> None:
-        if self.width_mm <= 0 or self.thickness_mm <= 0:
+        if (
+            self.width_mm <= 0
+            or self.thickness_mm <= 0
+            or self.commercial_length_mm <= 0
+        ):
             raise StickSizingError("As dimensões do palito devem ser positivas")
 
 
@@ -72,22 +77,30 @@ class StickSizingConfig:
     )
     effective_length_factor: float = 1.0
     design_force_factor: float = 1.0
-    max_sticks: int = 1_000
+    max_layers: int = 1_000
+    use_section_geometry: bool = True
+    splice_overlap_mm: float = 0.0
 
     def __post_init__(self) -> None:
         if self.effective_length_factor <= 0:
             raise StickSizingError("O fator de comprimento efetivo deve ser positivo")
         if self.design_force_factor <= 0:
             raise StickSizingError("O fator do esforço de cálculo deve ser positivo")
-        if self.max_sticks < 1:
-            raise StickSizingError("max_sticks deve ser pelo menos 1")
+        if self.max_layers < 1:
+            raise StickSizingError("max_layers deve ser pelo menos 1")
+        if self.splice_overlap_mm < 0:
+            raise StickSizingError("A sobreposição não pode ser negativa")
+        if self.splice_overlap_mm >= self.stick.commercial_length_mm:
+            raise StickSizingError(
+                "A sobreposição deve ser menor que o comprimento comercial"
+            )
 
 
 @dataclass(frozen=True)
 class CompressionCheck:
-    """Resultado completo para uma seção composta por uma quantidade de palitos."""
+    """Resultado completo para uma seção composta por camadas de palitos."""
 
-    stick_count: int
+    layer_count: int
     compression_force_n: float
     design_force_n: float
     member_length_m: float
@@ -112,13 +125,18 @@ class CompressionCheck:
     governing_utilization: float
     passes: bool
 
+    @property
+    def stick_count(self) -> int:
+        """Alias mantido para compatibilidade; representa camadas."""
+        return self.layer_count
+
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
 
 @dataclass(frozen=True)
 class MemberStickSizing:
-    """Quantidade mínima de palitos para uma barra do modelo."""
+    """Camadas dimensionadas e quantidade física para uma barra do modelo."""
 
     id: str
     ftool_id: int
@@ -130,11 +148,23 @@ class MemberStickSizing:
     axial_max_n: float
     compression_demand_n: float
     status: str
-    required_sticks: Optional[int]
+    required_layers: Optional[int]
+    sticks_per_layer: Optional[int]
+    total_sticks: Optional[int]
+    section_width_mm: Optional[float]
+    section_thickness_mm: Optional[float]
+    geometry_section_name: Optional[str]
     check: Optional[CompressionCheck]
 
+    @property
+    def required_sticks(self) -> Optional[int]:
+        """Alias compatível: agora representa palitos físicos, não camadas."""
+        return self.total_sticks
+
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        data = asdict(self)
+        data["required_sticks"] = self.total_sticks
+        return data
 
 
 @dataclass(frozen=True)
@@ -150,24 +180,41 @@ class StickSizingReport:
 
     @property
     def sum_of_member_section_counts(self) -> int:
-        return sum(item.required_sticks or 0 for item in self.members)
+        """Soma das camadas requeridas nas seções dos membros."""
+        return sum(item.required_layers or 0 for item in self.members)
+
+    @property
+    def total_required_layers(self) -> int:
+        return self.sum_of_member_section_counts
+
+    @property
+    def total_physical_sticks(self) -> int:
+        return sum(item.total_sticks or 0 for item in self.members)
 
     @property
     def total_required_sticks(self) -> int:
-        """Soma das quantidades nas seções das barras comprimidas."""
-        return self.sum_of_member_section_counts
+        """Quantidade física total estimada de palitos comerciais."""
+        return self.total_physical_sticks
 
     @property
     def compressed_lamination_length_m(self) -> float:
         return sum(
-            (item.required_sticks or 0) * item.member_length_m
+            (item.required_layers or 0) * item.member_length_m
             for item in self.members
+        )
+
+    @property
+    def estimated_purchased_length_m(self) -> float:
+        return (
+            self.total_physical_sticks
+            * self.config.stick.commercial_length_mm
+            / 1_000.0
         )
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "schema": "ftool-parser-python.stick-sizing",
-            "schema_version": 1,
+            "schema_version": 2,
             "units": {
                 "model_length": "m",
                 "section_length": "mm",
@@ -184,8 +231,11 @@ class StickSizingReport:
                 "member_count": len(self.members),
                 "compression_member_count": self.compression_members,
                 "total_required_sticks": self.total_required_sticks,
+                "total_physical_sticks": self.total_physical_sticks,
+                "total_required_layers": self.total_required_layers,
                 "sum_of_member_section_counts": self.sum_of_member_section_counts,
                 "compressed_lamination_length_m": self.compressed_lamination_length_m,
+                "estimated_purchased_length_m": self.estimated_purchased_length_m,
             },
             "members": [item.to_dict() for item in self.members],
         }
@@ -194,12 +244,20 @@ class StickSizingReport:
         """Retorna uma visão compacta do total e da quantidade por membro."""
         return {
             "schema": "ftool-parser-python.stick-counts",
-            "schema_version": 1,
+            "schema_version": 2,
             "scope": "compression_members",
-            "units": {"force": "N", "length": "m"},
+            "units": {
+                "force": "N",
+                "member_length": "m",
+                "section_and_stick_length": "mm",
+            },
             "total_required_sticks": self.total_required_sticks,
+            "total_physical_sticks": self.total_physical_sticks,
+            "total_required_layers": self.total_required_layers,
             "compression_member_count": self.compression_members,
             "compressed_lamination_length_m": self.compressed_lamination_length_m,
+            "commercial_stick_length_mm": self.config.stick.commercial_length_mm,
+            "splice_overlap_mm": self.config.splice_overlap_mm,
             "members": [
                 {
                     "id": item.id,
@@ -208,7 +266,13 @@ class StickSizingReport:
                     "end_node": item.end_node,
                     "length": item.member_length_m,
                     "compression_demand": item.compression_demand_n,
-                    "required_sticks": item.required_sticks,
+                    "required_layers": item.required_layers,
+                    "sticks_per_layer": item.sticks_per_layer,
+                    "total_sticks": item.total_sticks,
+                    "required_sticks": item.total_sticks,
+                    "section_width_mm": item.section_width_mm,
+                    "section_thickness_mm": item.section_thickness_mm,
+                    "geometry_section_name": item.geometry_section_name,
                     "status": item.status,
                     "governing_utilization": (
                         item.check.governing_utilization if item.check else None
@@ -222,10 +286,10 @@ class StickSizingReport:
 def check_compression_section(
     compression_force_n: float,
     member_length_m: float,
-    stick_count: int,
+    layer_count: int,
     config: Optional[StickSizingConfig] = None,
 ) -> CompressionCheck:
-    """Verifica uma quantidade definida de palitos em uma barra comprimida."""
+    """Verifica uma quantidade definida de camadas em uma barra comprimida."""
 
     sizing = config or StickSizingConfig()
     if compression_force_n <= 0:
@@ -233,14 +297,14 @@ def check_compression_section(
     if member_length_m <= 0:
         raise StickSizingError("O comprimento da barra deve ser positivo")
     if (
-        not isinstance(stick_count, int)
-        or isinstance(stick_count, bool)
-        or stick_count < 1
+        not isinstance(layer_count, int)
+        or isinstance(layer_count, bool)
+        or layer_count < 1
     ):
-        raise StickSizingError("A quantidade de palitos deve ser um inteiro positivo")
+        raise StickSizingError("A quantidade de camadas deve ser um inteiro positivo")
 
     width = sizing.stick.width_mm
-    height = sizing.stick.thickness_mm * stick_count
+    height = sizing.stick.thickness_mm * layer_count
     area = width * height
     ix = width * height**3 / 12.0
     iy = height * width**3 / 12.0
@@ -270,7 +334,7 @@ def check_compression_section(
     governing_utilization = max(utilization_x, utilization_y)
 
     return CompressionCheck(
-        stick_count=stick_count,
+        layer_count=layer_count,
         compression_force_n=float(compression_force_n),
         design_force_n=design_force,
         member_length_m=float(member_length_m),
@@ -297,27 +361,40 @@ def check_compression_section(
     )
 
 
-def required_sticks_for_compression(
+def required_layers_for_compression(
     compression_force_n: float,
     member_length_m: float,
     config: Optional[StickSizingConfig] = None,
 ) -> CompressionCheck:
-    """Busca a menor quantidade inteira que atende à verificação completa."""
+    """Busca a menor quantidade de camadas que atende à verificação."""
 
     sizing = config or StickSizingConfig()
-    for stick_count in range(1, sizing.max_sticks + 1):
+    for layer_count in range(1, sizing.max_layers + 1):
         check = check_compression_section(
             compression_force_n,
             member_length_m,
-            stick_count,
+            layer_count,
             sizing,
         )
         if check.passes:
             return check
     raise StickSizingError(
         "Nenhuma seção atendeu até "
-        f"{sizing.max_sticks} palitos para {compression_force_n:g} N e "
+        f"{sizing.max_layers} camadas para {compression_force_n:g} N e "
         f"{member_length_m:g} m"
+    )
+
+
+def required_sticks_for_compression(
+    compression_force_n: float,
+    member_length_m: float,
+    config: Optional[StickSizingConfig] = None,
+) -> CompressionCheck:
+    """Alias compatível de :func:`required_layers_for_compression`."""
+    return required_layers_for_compression(
+        compression_force_n,
+        member_length_m,
+        config,
     )
 
 
@@ -331,7 +408,10 @@ def size_compression_members(
     if not analysis.solved:
         raise RuntimeError("Execute analysis.solve() antes de dimensionar palitos")
     sizing = config or StickSizingConfig()
-    members = [_size_member(member, analysis, sizing) for member in model.members]
+    members = [
+        _size_member(member, analysis, sizing, model.sections)
+        for member in model.members
+    ]
     return StickSizingReport(config=sizing, members=members)
 
 
@@ -361,6 +441,7 @@ def _size_member(
     member: Member,
     analysis: AnastructModel,
     config: StickSizingConfig,
+    sections: List[Section],
 ) -> MemberStickSizing:
     try:
         ana_id = analysis.member_ids[member.id]
@@ -386,15 +467,27 @@ def _size_member(
             axial_max_n=axial_max,
             compression_demand_n=0.0,
             status="not_in_compression",
-            required_sticks=None,
+            required_layers=None,
+            sticks_per_layer=None,
+            total_sticks=None,
+            section_width_mm=None,
+            section_thickness_mm=None,
+            geometry_section_name=None,
             check=None,
         )
 
-    check = required_sticks_for_compression(
-        compression_demand,
-        member.length,
+    member_config, geometry_section_name = _config_for_member(
+        member,
+        sections,
         config,
     )
+    check = required_layers_for_compression(
+        compression_demand,
+        member.length,
+        member_config,
+    )
+    sticks_per_layer = _sticks_along_member(member.length, member_config)
+    total_sticks = check.layer_count * sticks_per_layer
     return MemberStickSizing(
         id=f"m{ana_id}",
         ftool_id=member.id,
@@ -406,9 +499,79 @@ def _size_member(
         axial_max_n=axial_max,
         compression_demand_n=compression_demand,
         status="sized",
-        required_sticks=check.stick_count,
+        required_layers=check.layer_count,
+        sticks_per_layer=sticks_per_layer,
+        total_sticks=total_sticks,
+        section_width_mm=member_config.stick.width_mm,
+        section_thickness_mm=member_config.stick.thickness_mm,
+        geometry_section_name=geometry_section_name,
         check=check,
     )
+
+
+def _config_for_member(
+    member: Member,
+    sections: List[Section],
+    config: StickSizingConfig,
+) -> tuple[StickSizingConfig, Optional[str]]:
+    if not config.use_section_geometry:
+        return config, None
+
+    if not member.section_name:
+        raise StickSizingError(
+            f"Barra FTool {member.id} não possui seção para obter as dimensões"
+        )
+
+    matching = [
+        section for section in sections if section.name == member.section_name
+    ]
+    valid = [section for section in matching if _has_stick_dimensions(section)]
+
+    # Alguns arquivos possuem nomes que diferem apenas em maiúsculas e uma
+    # definição incompleta. Nesse caso, usa a definição válida equivalente.
+    if not valid:
+        valid = [
+            section
+            for section in sections
+            if section.name.casefold() == member.section_name.casefold()
+            and _has_stick_dimensions(section)
+        ]
+
+    if not valid:
+        raise StickSizingError(
+            f"Seção {member.section_name!r} da barra FTool {member.id} "
+            "não possui largura e espessura retangulares positivas"
+        )
+
+    section = valid[0]
+    stick = replace(
+        config.stick,
+        width_mm=section.width * 1_000.0,
+        thickness_mm=section.thickness * 1_000.0,
+    )
+    return replace(config, stick=stick), section.name
+
+
+def _has_stick_dimensions(section: Section) -> bool:
+    return section.width > 0 and section.thickness > 0
+
+
+def _sticks_along_member(
+    member_length_m: float,
+    config: StickSizingConfig,
+) -> int:
+    member_length_mm = member_length_m * 1_000.0
+    commercial_length = config.stick.commercial_length_mm
+    overlap = config.splice_overlap_mm
+    if member_length_mm <= commercial_length:
+        return 1
+    effective_increment = commercial_length - overlap
+    remaining_length = member_length_mm - commercial_length
+    tolerance_mm = 1e-9
+    extra_sticks = math.ceil(
+        max(0.0, remaining_length - tolerance_mm) / effective_increment
+    )
+    return 1 + extra_sticks
 
 
 def _compression_reduction_factor(

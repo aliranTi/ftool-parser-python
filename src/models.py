@@ -18,6 +18,8 @@ class Section:
     area: float                # A (m²)
     inertia: float             # I (m⁴)
     height: float = 0.0        # h (m) - opcional para análise de temperatura
+    width: float = 0.0         # largura (m), quando a seção é retangular
+    thickness: float = 0.0     # espessura (m), quando a seção é retangular
 
 @dataclass
 class PointLoad:

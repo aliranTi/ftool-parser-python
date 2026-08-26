@@ -158,15 +158,19 @@ def plot_stick_sizing(
                 f"Barra FTool {member.id} não encontrada no relatório"
             ) from exc
 
-        if sizing.required_sticks is None and not show_non_compression:
+        if sizing.required_layers is None and not show_non_compression:
             continue
 
-        if sizing.required_sticks is None:
+        if sizing.required_layers is None:
             label = f"{sizing.id}\nsem compressão"
             color = "dimgray"
         else:
-            suffix = "palito" if sizing.required_sticks == 1 else "palitos"
-            label = f"{sizing.id}\n{sizing.required_sticks} {suffix}"
+            layer_suffix = "camada" if sizing.required_layers == 1 else "camadas"
+            stick_suffix = "palito" if sizing.total_sticks == 1 else "palitos"
+            label = (
+                f"{sizing.id}\n{sizing.required_layers} {layer_suffix}\n"
+                f"{sizing.total_sticks} {stick_suffix}"
+            )
             color = "saddlebrown"
 
         dx = member.x2 - member.x1
@@ -192,8 +196,8 @@ def plot_stick_sizing(
         )
 
     axis.set_title(
-        "Palitos por membro comprimido — "
-        f"total dimensionado: {report.total_required_sticks}"
+        "Palitos físicos estimados por membro comprimido — "
+        f"total: {report.total_physical_sticks}"
     )
     if show:
         analysis.system.plotter.plot()

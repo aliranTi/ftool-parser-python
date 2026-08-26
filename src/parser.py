@@ -142,18 +142,21 @@ class FtlParser:
 
         section_count = self._read_count("seções")
         for section_id in range(1, section_count + 1):
-            name, _ = self._read_quoted_record("seção")
+            name, section_flags = self._read_quoted_record("seção")
             values = parse_numbers(self._read_line("propriedades da seção"))
             if len(values) < 2:
                 self._fail("seção deve conter ao menos área e inércia")
 
             inertia_index = 2 if len(values) >= 3 else 1
             height = values[4] if len(values) >= 5 else 0.0
+            is_rectangular = bool(section_flags and int(section_flags[0]) == 1)
             section = Section(
                 name=name,
                 area=values[0],
                 inertia=values[inertia_index],
                 height=height,
+                width=values[0] if is_rectangular else 0.0,
+                thickness=values[1] if is_rectangular else 0.0,
             )
             self.model.sections.append(section)
             self._sections_by_id[section_id] = section
