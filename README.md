@@ -23,6 +23,8 @@ Internacional antes de serem expostas pela API.
 - Identificação de rótulas e restrições de deformação das barras.
 - Conversão de geometria, propriedades, apoios e cargas para o anaStruct.
 - Solução estrutural e plots de geometria e resultados com o anaStruct.
+- Exportação versionada dos resultados axiais para dicionário ou JSON.
+- Dimensionamento da quantidade de palitos nas barras comprimidas.
 - Conversão do modelo para dicionário serializável em JSON.
 - Testes de regressão e validação visual no notebook.
 
@@ -233,6 +235,216 @@ Os nomes aceitos são `reactions`, `axial`, `shear`, `moment` e
 correspondente do anaStruct, por exemplo `verbosity=1`, `scale=1.2` ou
 `figsize=(12, 7)`.
 
+## Exportação da análise axial
+
+Os resultados podem ser obtidos como um dicionário Python ou gravados em um
+JSON versionado:
+
+```python
+from src.converter_anastruct import to_anastruct
+from src.exporter import axial_analysis_to_dict, export_axial_analysis
+
+analysis = to_anastruct(model, solve=True)
+
+data = axial_analysis_to_dict(model, analysis, name="ponte_3")
+export_axial_analysis(
+    model,
+    analysis,
+    "outputs/ponte_3_axial.json",
+    name="ponte_3",
+)
+```
+
+O documento contém versão do schema, unidades, convenção de sinais, nós,
+conectividade, carregamentos, reações e resultados por barra. Força axial
+positiva representa tração e força negativa representa compressão. Cada barra
+recebe uma classificação `tension`, `compression`, `mixed` ou `zero`.
+
+Por padrão são exportados os valores inicial, final, mínimo e máximo. Para
+incluir os pontos usados pelo diagrama axial do anaStruct:
+
+```python
+export_axial_analysis(
+    model,
+    analysis,
+    "outputs/ponte_3_axial_detalhado.json",
+    include_samples=True,
+)
+```
+
+Trecho do JSON gerado:
+
+```json
+{
+  "schema": "ftool-parser-python.axial-analysis",
+  "schema_version": 1,
+  "units": {"length": "m", "force": "N"},
+  "members": [
+    {
+      "id": "m1",
+      "start_node": "n1",
+      "end_node": "n2",
+      "axial_force": {
+        "start": 153.2833576970673,
+        "end": 153.2833576970673,
+        "state": "tension"
+      }
+    }
+  ]
+}
+```
+
+## Dimensionamento axial dos palitos
+
+O dimensionador procura primeiro a menor quantidade de **camadas** que atende
+à solicitação axial. Na compressão, verifica também a instabilidade nos dois
+eixos. Na tração paralela às fibras, aplica `sigma = Ft / (n * b * hp)` em
+`N`, `mm²` e `MPa`. Depois, usa o comprimento do membro e o comprimento
+comercial para estimar a quantidade física de palitos:
+
+```python
+from src.stick_sizing import size_axial_members
+
+report = size_axial_members(model, analysis)
+
+for member in report.members:
+    if member.total_sticks is not None:
+        print(
+            member.id,
+            member.governing_mode,
+            f"{member.required_layers} camadas",
+            f"{member.sticks_per_layer} palitos/camada",
+            f"{member.total_sticks} palitos no total",
+            f"utilização={member.check.governing_utilization:.3f}",
+        )
+```
+
+As hipóteses padrão, adaptadas do projeto
+[app_compressao_pontes](https://github.com/Rated84/app_compressao_pontes), são:
+
+| Parâmetro | Valor padrão |
+|---|---:|
+| Largura e espessura | lidas da seção retangular do `.ftl` |
+| Comprimento comercial | `115 mm` |
+| Sobreposição por emenda | `0 mm` |
+| Resistência média à tração paralela | `66 MPa` |
+| Resistência característica à compressão | `25 MPa` |
+| Módulo de elasticidade médio | `13000 MPa` |
+| `kmod1` | `1.1` |
+| `kmod2` | `0.9` |
+| `gamma_m` | `1.0` |
+| `beta_c` | `0.1` |
+| Fator de comprimento efetivo | `1.0` |
+| Fator da força de tração | `1.0` |
+
+Todos os valores podem ser substituídos:
+
+```python
+from src.stick_sizing import (
+    StickGeometry,
+    StickSizingConfig,
+    WoodCompressionProperties,
+    WoodTensionProperties,
+    size_axial_members,
+)
+
+config = StickSizingConfig(
+    stick=StickGeometry(
+        width_mm=8.0,
+        thickness_mm=1.86,
+        commercial_length_mm=115.0,
+    ),
+    wood=WoodCompressionProperties(
+        strength_class="ensaio_proprio",
+        characteristic_strength_mpa=22.0,
+        mean_elasticity_mpa=11_500.0,
+        gamma_m=1.4,
+    ),
+    tension=WoodTensionProperties(ft0m_mpa=66.0),
+    effective_length_factor=0.8,
+    design_force_factor=1.5,
+    tension_force_factor=1.0,
+    use_section_geometry=False,
+    splice_overlap_mm=0.0,
+)
+
+report = size_axial_members(model, analysis, config)
+```
+
+Como `1 MPa = 1 N/mm²`, a verificação de uma seção pode ser feita
+diretamente com a força em N:
+
+```python
+from src.stick_sizing import StickGeometry, StickSizingConfig, check_tension_section
+
+tension_example = StickSizingConfig(
+    stick=StickGeometry(width_mm=8.0, thickness_mm=1.86),
+    use_section_geometry=False,
+)
+
+check = check_tension_section(
+    tension_force_n=2_000.0,
+    layer_count=3,
+    config=tension_example,
+)
+print(check.area_mm2, check.stress_mpa, check.passes)
+```
+
+O relatório também pode ser gravado em JSON:
+
+```python
+from src.stick_sizing import export_stick_sizing_report
+
+export_stick_sizing_report(report, "outputs/dimensionamento_palitos.json")
+```
+
+Para uma saída compacta contendo apenas o total e a quantidade por membro:
+
+```python
+from src.stick_sizing import export_stick_counts
+
+print(report.total_required_layers)  # camadas somadas entre os membros
+print(report.total_physical_sticks)  # palitos comerciais estimados
+export_stick_counts(report, "outputs/quantidade_palitos.json")
+```
+
+O dimensionamento também pode ser mostrado sobre a estrutura:
+
+```python
+from src.visualizer import plot_stick_sizing
+
+plot_stick_sizing(model, report)
+```
+
+O gráfico mostra, em cada rótulo compacto, o membro, o total de palitos e a
+quantidade de camadas (`p` = palitos e `c` = camadas). Ele colore as barras
+conforme o esforço governante e varia a espessura da linha com a quantidade
+relativa. Nessa visualização, apoios e IDs dos nós ficam ocultos e as
+coordenadas usam uma origem local `(0, 0)` em centímetros. Use
+`length_unit="mm"` para trocar a escala para milímetros. A legenda separa
+compressão, tração e membros mantidos com a quantidade mínima construtiva. Para
+exibir também os palitos por camada, use
+`plot_stick_sizing(model, report, label_detail="detailed")`. Os valores das
+cargas ficam ocultos nessa vista para evitar sobreposição; eles podem ser
+reativados com `show_load_values=True`.
+
+Quando `use_section_geometry=True`, a largura e a espessura são obtidas dos
+dois valores da seção retangular do `.ftl`. Se uma definição com o mesmo nome,
+diferindo apenas por maiúsculas/minúsculas, estiver incompleta, o dimensionador
+usa a equivalente que possua ambas as dimensões positivas.
+
+Para cada membro, `required_layers` é a quantidade transversal,
+`sticks_per_layer` é a quantidade longitudinal e `total_sticks` é o produto
+das duas. `total_physical_sticks` soma os palitos físicos dos membros. Essa é
+uma estimativa sem perdas de corte; ajuste `commercial_length_mm` e
+`splice_overlap_mm` para representar o material usado. Membros sem solicitação
+axial recebem `minimum_member_layers=1` por padrão, pois continuam existindo
+fisicamente na ponte.
+
+> Este cálculo é uma ferramenta de pré-dimensionamento baseada nas hipóteses
+> informadas. As propriedades reais devem ser obtidas por ensaio e os critérios
+> de segurança devem ser definidos pelo responsável pelo projeto.
+
 ## Conversão para dicionário/JSON
 
 ```python
@@ -276,9 +488,11 @@ ftool-parser-python/
 ├── inputs/                 # Arquivos FTL usados como fixtures
 ├── src/
 │   ├── converter_anastruct.py # Conversão e interface de análise
+│   ├── exporter.py             # Exportação da análise axial para JSON
 │   ├── ftl_reader.py          # Leitura textual com encoding latin-1
 │   ├── models.py              # Dataclasses do modelo estrutural
 │   ├── parser.py              # Parser sequencial FTL 4.00/4.01
+│   ├── stick_sizing.py        # Dimensionamento das barras comprimidas
 │   ├── utils.py               # Utilitários de parsing numérico
 │   └── visualizer.py          # Plots fornecidos pelo anaStruct
 ├── notebook.ipynb          # Testes de regressão e gráficos
