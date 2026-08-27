@@ -416,9 +416,17 @@ from src.visualizer import plot_stick_sizing
 plot_stick_sizing(model, report)
 ```
 
-O gráfico diferencia compressão, tração e membros mantidos com a quantidade
-mínima construtiva de camadas, apresentando também os palitos físicos por
-membro.
+O gráfico mostra, em cada rótulo compacto, o membro, o total de palitos e a
+quantidade de camadas (`p` = palitos e `c` = camadas). Ele colore as barras
+conforme o esforço governante e varia a espessura da linha com a quantidade
+relativa. Nessa visualização, apoios e IDs dos nós ficam ocultos e as
+coordenadas usam uma origem local `(0, 0)` em centímetros. Use
+`length_unit="mm"` para trocar a escala para milímetros. A legenda separa
+compressão, tração e membros mantidos com a quantidade mínima construtiva. Para
+exibir também os palitos por camada, use
+`plot_stick_sizing(model, report, label_detail="detailed")`. Os valores das
+cargas ficam ocultos nessa vista para evitar sobreposição; eles podem ser
+reativados com `show_load_values=True`.
 
 Quando `use_section_geometry=True`, a largura e a espessura são obtidas dos
 dois valores da seção retangular do `.ftl`. Se uma definição com o mesmo nome,
