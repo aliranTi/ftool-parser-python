@@ -26,6 +26,7 @@ Internacional antes de serem expostas pela API.
 - Exportação versionada dos resultados axiais para dicionário ou JSON.
 - Dimensionamento da quantidade de palitos nas barras comprimidas.
 - Conversão do modelo para dicionário serializável em JSON.
+- API JSON para chamadas em memória feitas pelo Pyodide/JavaScript.
 - Testes de regressão e validação visual no notebook.
 
 ## Como o parser interpreta o FTL
@@ -106,6 +107,81 @@ Para executar o notebook, instale também o Jupyter:
 
 ```bash
 python -m pip install jupyter
+```
+
+## Uso no Pyodide
+
+O módulo `src.pyodide_api` fornece uma fronteira baseada exclusivamente em
+strings JSON. Isso evita arquivos temporários e também evita que objetos
+Python permaneçam no JavaScript como `PyProxy`.
+
+Gere o wheel do projeto para publicá-lo junto da aplicação web:
+
+```bash
+python -m pip wheel . --no-deps --wheel-dir dist
+```
+
+Exemplo de carregamento e chamada no navegador:
+
+```javascript
+import { loadPyodide, version as pyodideVersion } from "pyodide";
+
+const pyodide = await loadPyodide({
+  indexURL: `https://cdn.jsdelivr.net/pyodide/v${pyodideVersion}/full/`,
+});
+
+await pyodide.loadPackage("micropip");
+const micropip = pyodide.pyimport("micropip");
+await micropip.install(
+  "/python/ftool_parser_python-0.1.0-py3-none-any.whl",
+);
+micropip.destroy();
+
+const bytes = new Uint8Array(await file.arrayBuffer());
+const ftlText = new TextDecoder("iso-8859-1").decode(bytes);
+const request = JSON.stringify({
+  operation: "parse",
+  name: file.name,
+  ftl_text: ftlText,
+});
+
+const api = pyodide.pyimport("src.pyodide_api");
+const response = JSON.parse(api.handle_request_json(request));
+api.destroy();
+
+if (!response.ok) {
+  throw new Error(`${response.error.code}: ${response.error.message}`);
+}
+console.log(response.result.model);
+```
+
+Operações aceitas:
+
+| Operação | Resultado | Dependências no Pyodide |
+|---|---|---|
+| `parse` | Modelo, geometria, apoios e cargas | somente o wheel deste projeto |
+| `analyze_axial` | Reações e forças axiais | NumPy, SciPy e anaStruct compatível |
+| `size_sticks` | Análise, dimensionamento e quantidades | NumPy, SciPy e anaStruct compatível |
+
+Para incluir os pontos internos do diagrama axial, envie
+`options: {include_samples: true}`.
+
+O Pyodide fornece builds próprios de NumPy e SciPy, mas o anaStruct 1.7 não
+faz parte da sua [distribuição oficial de pacotes](https://pyodide.org/en/stable/usage/packages-in-pyodide.html)
+e os wheels comuns do PyPI contêm
+extensões nativas da plataforma. Portanto, `parse` já pode ser executado no
+navegador; as duas operações de cálculo exigem que a aplicação carregue antes
+um wheel do anaStruct compilado para WebAssembly ou preparado em Python puro.
+Quando uma dependência estiver ausente, a API responde com
+`error.code = "dependency_unavailable"` em vez de quebrar o contrato JSON.
+
+Também é possível usar diretamente o parser em memória no Python:
+
+```python
+from src.parser import FtlParser
+
+model = FtlParser.from_text(ftl_text).parse()
+model_from_bytes = FtlParser.from_bytes(ftl_bytes).parse()
 ```
 
 ## Uso básico
@@ -234,6 +310,27 @@ Os nomes aceitos são `reactions`, `axial`, `shear`, `moment` e
 `displacement`. Argumentos adicionais são encaminhados ao método de plot
 correspondente do anaStruct, por exemplo `verbosity=1`, `scale=1.2` ou
 `figsize=(12, 7)`.
+
+Para comparar diretamente os valores das barras com o FTool, use a vista
+dedicada de forças axiais:
+
+```python
+from src.visualizer import plot_axial_forces
+
+analysis.solve()
+plot_axial_forces(
+    model,
+    analysis,
+    force_unit="kN",
+    length_unit="cm",
+    decimals=3,
+)
+```
+
+Essa vista mostra somente os membros e seus valores axiais: não desenha nós,
+apoios ou cargas. O sinal positivo indica tração e o negativo, compressão. A
+unidade padrão é `kN`, como normalmente exibido no FTool; use
+`force_unit="N"` para trabalhar diretamente na unidade interna do parser.
 
 ## Exportação da análise axial
 

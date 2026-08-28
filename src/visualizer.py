@@ -1,10 +1,11 @@
 import math
 from typing import Any, Literal
 
+from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
 
 from .converter_anastruct import AnastructModel, to_anastruct
-from .models import FtoolModel
+from .models import FtoolModel, Member
 from .stick_sizing import StickSizingReport
 
 
@@ -17,6 +18,7 @@ ResultPlot = Literal[
 ]
 StickLabelDetail = Literal["compact", "detailed"]
 LengthUnit = Literal["m", "cm", "mm"]
+ForceUnit = Literal["N", "kN"]
 
 
 _STICK_MODE_STYLES = {
@@ -24,6 +26,13 @@ _STICK_MODE_STYLES = {
     "tension": ("#2563D9", "tração"),
     "minimum": ("#5F6B7A", "mínimo construtivo"),
     None: ("#777777", "sem compressão"),
+}
+
+_AXIAL_FORCE_STYLES = {
+    "compression": ("#C2410C", "Compressão"),
+    "tension": ("#1D4ED8", "Tração"),
+    "mixed": ("#7C3AED", "Variação de sinal"),
+    "zero": ("#64748B", "Força nula"),
 }
 
 
@@ -133,6 +142,242 @@ def _customize_structure_labels(
                 zorder=12,
                 bbox=label_box,
             )
+
+
+def plot_axial_forces(
+    model: FtoolModel,
+    analysis: AnastructModel,
+    *,
+    show: bool = True,
+    force_unit: ForceUnit = "kN",
+    length_unit: LengthUnit = "cm",
+    decimals: int = 3,
+    show_member_ids: bool = True,
+    show_legend: bool = True,
+    figsize: tuple[float, float] = (10.0, 6.0),
+) -> Any:
+    """Mostra apenas a força axial sobre cada membro da estrutura.
+
+    A vista não inclui nós, apoios ou cargas. Forças positivas representam
+    tração e forças negativas representam compressão, seguindo a convenção do
+    exportador. Quando a força varia ao longo de uma barra, o rótulo mostra os
+    valores inicial e final separados por uma seta.
+    """
+
+    if not analysis.solved:
+        raise RuntimeError("Execute analysis.solve() antes de plotar resultados")
+    if force_unit not in ("N", "kN"):
+        raise ValueError("force_unit deve ser 'N' ou 'kN'")
+    if length_unit not in ("m", "cm", "mm"):
+        raise ValueError("length_unit deve ser 'm', 'cm' ou 'mm'")
+    if decimals < 0:
+        raise ValueError("decimals deve ser maior ou igual a zero")
+
+    missing_members = [
+        member.id for member in model.members if member.id not in analysis.member_ids
+    ]
+    if missing_members:
+        raise ValueError(
+            "O modelo não corresponde à análise convertida: "
+            f"barras ausentes={missing_members}"
+        )
+
+    figure, axis = plt.subplots(figsize=figsize)
+    x_values = [node.x for node in model.nodes]
+    y_values = [node.y for node in model.nodes]
+    span = max(max(x_values) - min(x_values), max(y_values) - min(y_values))
+    label_offset = max(span * 0.028, 1e-6)
+    center_x = (min(x_values) + max(x_values)) / 2
+    center_y = (min(y_values) + max(y_values)) / 2
+    force_factor = {"N": 1.0, "kN": 1_000.0}[force_unit]
+    visible_states = set()
+
+    for member_index, member in enumerate(model.members):
+        result = analysis.system.get_element_results(
+            analysis.member_ids[member.id],
+            verbose=True,
+        )
+        axial_values = [float(value) for value in result["N"]]
+        axial_start = axial_values[0]
+        axial_end = axial_values[-1]
+        axial_min = float(result["Nmin"])
+        axial_max = float(result["Nmax"])
+        state = _classify_axial_state(axial_min, axial_max)
+        visible_states.add(state)
+        color, _ = _AXIAL_FORCE_STYLES[state]
+
+        axis.plot(
+            [member.x1, member.x2],
+            [member.y1, member.y2],
+            color=color,
+            linewidth=3.0,
+            alpha=0.86,
+            solid_capstyle="round",
+            zorder=4,
+        )
+
+        label_x, label_y = _member_label_position(
+            member,
+            member_index,
+            center_x,
+            center_y,
+            label_offset,
+            span,
+        )
+        force_label = _format_axial_force(
+            axial_start,
+            axial_end,
+            force_factor,
+            force_unit,
+            decimals,
+        )
+        label = f"m{member.id}\n{force_label}" if show_member_ids else force_label
+        axis.text(
+            label_x,
+            label_y,
+            label,
+            color=color,
+            fontsize=8,
+            fontweight="bold",
+            horizontalalignment="center",
+            verticalalignment="center",
+            zorder=8,
+            bbox={
+                "facecolor": "white",
+                "edgecolor": color,
+                "linewidth": 0.9,
+                "alpha": 0.94,
+                "pad": 1.4,
+                "boxstyle": "round,pad=0.18",
+            },
+        )
+
+    axis.set_title(
+        "Forças axiais por membro",
+        loc="left",
+        fontsize=14,
+        fontweight="bold",
+        pad=18,
+    )
+    axis.set_title(
+        "+ tração  ·  − compressão",
+        loc="right",
+        fontsize=10,
+        color="#475569",
+        pad=18,
+    )
+    _normalize_structure_axes(axis, x_values, y_values, length_unit)
+
+    if show_legend:
+        legend_handles = [
+            Line2D(
+                [0],
+                [0],
+                color=_AXIAL_FORCE_STYLES[state][0],
+                linewidth=4,
+                solid_capstyle="round",
+                label=_AXIAL_FORCE_STYLES[state][1],
+            )
+            for state in ("compression", "tension", "mixed", "zero")
+            if state in visible_states
+        ]
+        axis.legend(
+            handles=legend_handles,
+            loc="upper center",
+            bbox_to_anchor=(0.5, -0.13),
+            ncol=len(legend_handles),
+            frameon=False,
+            fontsize=9,
+        )
+        figure.subplots_adjust(bottom=0.20, top=0.88)
+
+    if show:
+        plt.show()
+    return figure
+
+
+def _classify_axial_state(minimum: float, maximum: float) -> str:
+    tolerance = max(abs(minimum), abs(maximum), 1.0) * 1e-9
+    if abs(minimum) <= tolerance and abs(maximum) <= tolerance:
+        return "zero"
+    if minimum >= -tolerance:
+        return "tension"
+    if maximum <= tolerance:
+        return "compression"
+    return "mixed"
+
+
+def _format_axial_force(
+    start: float,
+    end: float,
+    factor: float,
+    unit: ForceUnit,
+    decimals: int,
+) -> str:
+    tolerance = max(abs(start), abs(end), 1.0) * 1e-9
+
+    def format_value(value: float) -> str:
+        if abs(value) <= tolerance:
+            return f"{0.0:.{decimals}f}"
+        normalized = value / factor
+        return f"{normalized:+.{decimals}f}"
+
+    if math.isclose(start, end, rel_tol=1e-9, abs_tol=tolerance):
+        return f"{format_value((start + end) / 2)} {unit}"
+    return f"{format_value(start)} → {format_value(end)} {unit}"
+
+
+def _member_label_position(
+    member: Member,
+    member_index: int,
+    center_x: float,
+    center_y: float,
+    label_offset: float,
+    span: float,
+) -> tuple[float, float]:
+    dx = member.x2 - member.x1
+    dy = member.y2 - member.y1
+    middle_x = (member.x1 + member.x2) / 2
+    middle_y = (member.y1 + member.y2) / 2
+    normal_x = -dy / member.length
+    normal_y = dx / member.length
+    outward = normal_x * (middle_x - center_x) + normal_y * (middle_y - center_y)
+    tolerance = span * 1e-6
+    if abs(outward) <= tolerance:
+        direction = 1 if member_index % 2 == 0 else -1
+    else:
+        direction = 1 if outward > 0 else -1
+
+    if abs(dy) <= tolerance:
+        crosses_center = min(member.x1, member.x2) <= center_x <= max(
+            member.x1,
+            member.x2,
+        )
+        desired_y_direction = (
+            -1 if middle_y < center_y - tolerance or crosses_center else 1
+        )
+        direction = 1 if normal_y * desired_y_direction > 0 else -1
+    elif (
+        min(member.y1, member.y2) >= center_y - tolerance
+        and member.length < span * 0.25
+    ):
+        # As diagonais curtas do topo ficam entre os rótulos das barras
+        # externas quando ambas são deslocadas para fora.
+        direction *= -1
+    elif (
+        abs(dx) > tolerance
+        and min(member.y1, member.y2) < center_y - tolerance
+        and max(member.y1, member.y2) <= center_y + tolerance
+        and abs(middle_x - center_x) < span * 0.30
+    ):
+        # Nas diagonais internas inferiores, o lado externo coincide com os
+        # rótulos dos montantes verticais.
+        direction *= -1
+    distance = label_offset * (1.65 if abs(dx) <= tolerance else 1.0)
+    return (
+        middle_x + direction * normal_x * distance,
+        middle_y + direction * normal_y * distance,
+    )
 
 
 def plot_stick_sizing(

@@ -14,11 +14,18 @@ class FtlReader:
         os bytes sem perder informação.
         """
 
-        raw = self.path.read_bytes()
+        return self.from_bytes(self.path.read_bytes())
 
-        text = raw.decode("latin-1")
+    @staticmethod
+    def from_bytes(raw: bytes) -> List[str]:
+        """Decodifica bytes FTL sem depender do filesystem."""
 
-        return [
-            line.rstrip()
-            for line in text.splitlines()
-        ]
+        return FtlReader.from_text(raw.decode("latin-1"))
+
+    @staticmethod
+    def from_text(text: str) -> List[str]:
+        """Normaliza conteúdo FTL já carregado em memória."""
+
+        if not isinstance(text, str):
+            raise TypeError("O conteúdo FTL deve ser uma string")
+        return [line.rstrip() for line in text.splitlines()]

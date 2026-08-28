@@ -35,8 +35,17 @@ class FtlParser:
     SENTINEL_LIMIT = 1e29
     KILO_TO_BASE = 1_000.0
 
-    def __init__(self, path: str | Path):
-        self.path = Path(path)
+    def __init__(
+        self,
+        path: str | Path | None = None,
+        *,
+        text: str | None = None,
+    ):
+        if (path is None) == (text is None):
+            raise ValueError("Informe exatamente um entre path e text")
+
+        self.path = Path(path) if path is not None else None
+        self._source_text = text
         self.lines: List[str] = []
         self.raw = RawModel(lines=[])
         self.model = FtoolModel()
@@ -48,10 +57,27 @@ class FtlParser:
         self._sections_by_id: Dict[int, Section] = {}
         self._point_loads_by_id: Dict[int, PointLoad] = {}
 
+    @classmethod
+    def from_text(cls, text: str) -> "FtlParser":
+        """Cria um parser para conteúdo em memória, inclusive no Pyodide."""
+
+        return cls(text=text)
+
+    @classmethod
+    def from_bytes(cls, raw: bytes) -> "FtlParser":
+        """Cria um parser para bytes FTL codificados em latin-1."""
+
+        return cls(text=raw.decode("latin-1"))
+
     def parse(self) -> FtoolModel:
         """Lê o arquivo e devolve um novo modelo a cada chamada."""
         self._reset()
-        self.lines = FtlReader(self.path).read()
+        if self._source_text is None:
+            if self.path is None:
+                raise RuntimeError("Fonte FTL não configurada")
+            self.lines = FtlReader(self.path).read()
+        else:
+            self.lines = FtlReader.from_text(self._source_text)
         self.raw.lines = self.lines
 
         self._parse_header()
@@ -466,7 +492,8 @@ class FtlParser:
 
     def debug(self) -> None:
         print("=" * 60)
-        print(f"FTOOL {self.version / 100:.2f}: {self.path}")
+        source = self.path if self.path is not None else "<memória>"
+        print(f"FTOOL {self.version / 100:.2f}: {source}")
         print("=" * 60)
         print(f"Materiais: {len(self.model.materials)}")
         print(f"Seções: {len(self.model.sections)}")

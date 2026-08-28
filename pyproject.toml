@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ftool-parser-python"
+version = "0.1.0"
+description = "Parser FTL e análise axial com uma fronteira JSON para Pyodide"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+analysis = ["anastruct==1.7.0"]
+plot = ["anastruct[plot]==1.7.0"]
+
+[tool.setuptools.packages.find]
+include = ["src"]
