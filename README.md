@@ -3,6 +3,8 @@
 ## Interface web
 
 A interface Next.js, React e TypeScript fica em [`web/`](web/README.md).
+Depois da publicação pelo GitHub Actions, ela fica disponível em
+<https://aliranti.github.io/ftool-parser-python/>.
 Para iniciar, execute `cd web`, `npm ci` e `npm run dev`, e acesse
 http://localhost:3000. O usuário pode importar um `.ftl`, conferir a prévia
 geométrica e confirmar a ponte ou escolher outro arquivo. A leitura usa o parser

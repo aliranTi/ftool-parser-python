@@ -40,7 +40,8 @@ export function analyzeBridge(text: string, signal: AbortSignal): Promise<AxialA
 function runBridge(text: string, signal: AbortSignal, operation: "parse" | "render_report"): Promise<BridgeModel | AxialAnalysis> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) { reject(new Error("Leitura cancelada.")); return; }
-    const worker = new Worker("/ftl-parser.worker.js");
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+    const worker = new Worker(`${basePath}/ftl-parser.worker.js`);
     const finish = () => {
       clearTimeout(timeout);
       worker.terminate();

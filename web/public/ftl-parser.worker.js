@@ -18,7 +18,7 @@ self.onmessage = async ({ data }) => {
       pyodide.unpackArchive(bytes, "gztar", { extractDir: "/vendor" });
       pyodide.runPython("import sys\nsys.path.insert(0, '/vendor/anastruct-1.7.0')");
     }
-    const response = await fetch("/python/parser.json");
+    const response = await fetch(new URL("./python/parser.json", self.location.href));
     if (!response.ok) throw new Error("Não foi possível carregar o parser.");
     const files = await response.json();
     pyodide.FS.mkdirTree("/app/src");

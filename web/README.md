@@ -19,8 +19,20 @@ Abra http://localhost:3000. No PowerShell, use `npm.cmd` se a política bloquear
 npm run lint
 npm run typecheck
 npm run build
-npm start
 ```
+
+O build estático é gravado em `out/`.
+
+## Publicação
+
+O workflow `.github/workflows/deploy-pages.yml` valida, exporta e publica o
+site no GitHub Pages a cada envio para `develop`. No repositório do GitHub,
+selecione **Settings > Pages > Source > GitHub Actions** uma vez. A publicação
+ficará disponível em
+<https://aliranti.github.io/ftool-parser-python/>.
+
+O build recebe do GitHub Pages o prefixo da URL. Assim, o site também funciona
+se um domínio personalizado for configurado no futuro.
 
 ## Organização
 
