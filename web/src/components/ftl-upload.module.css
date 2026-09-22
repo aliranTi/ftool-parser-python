@@ -1,0 +1,32 @@
+.section { margin-bottom: 48px; }
+.section h2 { font-size: 1.4rem; margin-bottom: 12px; }
+.help { color: #536058; line-height: 1.6; margin: 12px 0; }
+.dropzone { border: 2px dashed #76977d; border-radius: 16px; padding: 28px; background: #fffef9; margin-top: 20px; }
+.dropzone:focus-within { outline: 3px solid #356747; outline-offset: 4px; }
+.label { display: block; font-weight: 700; margin-bottom: 16px; }
+.dropzone input { max-width: 100%; font: inherit; }
+.dropzone input::file-selector-button, .result button { background: #203f2c; color: white; padding: 12px 16px; border: 0; border-radius: 8px; cursor: pointer; font: inherit; }
+.dropzone input::file-selector-button { margin-right: 12px; }
+.result { margin-top: 20px; padding: 24px; background: #e3ebe5; border-radius: 12px; line-height: 1.6; }
+.result p + p { margin-top: 8px; }
+.filename { overflow-wrap: anywhere; }
+.result button { margin-top: 16px; }
+.result button:focus-visible { outline: 3px solid #356747; outline-offset: 4px; }
+.error { color: #902424; background: #fff0ec; padding: 16px; margin-top: 16px; border-radius: 8px; line-height: 1.5; }
+.preview { margin-top: 24px; padding: 16px; background: #fffef9; border-radius: 12px; }
+.preview svg { display: block; width: 100%; height: auto; }
+.preview figcaption { font-size: .9rem; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.actions button:disabled { opacity: .65; cursor: default; }
+.analysis { margin-top: 32px; }
+.tableScroll { overflow-x: auto; margin-top: 20px; background: #fffef9; border-radius: 8px; }
+.tableScroll table { width: 100%; border-collapse: collapse; white-space: nowrap; }
+.tableScroll caption { text-align: left; padding: 12px; font-weight: 700; }
+.tableScroll th, .tableScroll td { padding: 10px 14px; text-align: right; border-bottom: 1px solid #dce3da; }
+.tableScroll th:first-child { text-align: left; }
+.chart { margin: 24px 0; padding: 20px; background: white; border-radius: 12px; }
+.chart h4 { font-size: 1.2rem; margin-bottom: 16px; }
+.chart img { display: block; width: 100%; height: auto; }
+.chart figcaption { margin: 12px 0; font-size: .9rem; }
+.chart a { color: #203f2c; }
+.analysis summary { cursor: pointer; padding: 12px 0; font-weight: 700; }

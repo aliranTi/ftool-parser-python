@@ -80,6 +80,24 @@ class PyodideApiTest(unittest.TestCase):
         self.assertFalse(response["ok"])
         self.assertEqual(response["error"]["code"], "invalid_request")
 
+    def test_web_report_reuses_analysis_and_renders_ordered_charts(self) -> None:
+        import base64
+        from xml.etree import ElementTree
+        from matplotlib import pyplot as plt
+
+        before = plt.get_fignums()
+        response = self.call("render_report")
+        self.assertTrue(response["ok"], response)
+        report = response["result"]
+        self.assertEqual([c["id"] for c in report["charts"]], ["axial", "displacement", "sticks"])
+        for chart in report["charts"]:
+            prefix, encoded = chart["image"].split(",", 1)
+            self.assertEqual(prefix, "data:image/svg+xml;base64")
+            self.assertTrue(ElementTree.fromstring(base64.b64decode(encoded)).tag.endswith("svg"))
+        self.assertEqual(report["analysis"], self.call("analyze_axial")["result"]["analysis"])
+        self.assertEqual(report["stick_counts"], self.call("size_sticks")["result"]["stick_counts"])
+        self.assertEqual(plt.get_fignums(), before)
+
     def test_invalid_json_returns_structured_error(self) -> None:
         response = json.loads(handle_request_json("{invalid"))
 

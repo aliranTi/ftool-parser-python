@@ -682,6 +682,72 @@ def _nice_tick_step(extent: float, target_ticks: int = 7) -> float:
     return nice * magnitude
 
 
+def plot_displacements(
+    analysis: AnastructModel,
+    *,
+    show: bool = True,
+    deformation_ratio: float = 0.08,
+    figsize: tuple[float, float] = (10.0, 5.0),
+) -> Any:
+    """Deformada em origem local, com escala visual e deslocamentos reais.
+
+    A maior translação amostrada ocupa ``deformation_ratio`` do maior vão
+    geométrico. A escala não altera a solução nem a proporção entre eixos.
+    """
+    import numpy as np
+    from matplotlib.ticker import MaxNLocator
+    from anastruct.fem.plotter.element import plot_values_deflection
+
+    if not analysis.solved:
+        raise RuntimeError("Execute analysis.solve() antes de plotar resultados")
+    if not math.isfinite(deformation_ratio) or deformation_ratio <= 0:
+        raise ValueError("deformation_ratio deve ser positivo e finito")
+    elements = list(analysis.system.element_map.values())
+    if not elements:
+        raise ValueError("A estrutura não possui barras")
+
+    curves = []
+    for element in elements:
+        x0, y0 = plot_values_deflection(element, 0.0)
+        x1, y1 = plot_values_deflection(element, 1.0)
+        curves.append((x0, y0, x1 - x0, y1 - y0))
+    x_origin = min(float(np.min(c[0])) for c in curves)
+    y_origin = min(float(np.min(c[1])) for c in curves)
+    width = max(float(np.max(c[0])) for c in curves) - x_origin
+    height = max(float(np.max(c[1])) for c in curves) - y_origin
+    span = max(width, height, 1e-9)
+    maximum = max(float(np.max(np.hypot(c[2], c[3]))) for c in curves)
+    factor = deformation_ratio * span / maximum if maximum > 1e-12 else 1.0
+
+    figure, axis = plt.subplots(figsize=figsize)
+    all_x, all_y = [], []
+    for index, (x0, y0, dx, dy) in enumerate(curves):
+        original_x, original_y = (x0 - x_origin) * 100, (y0 - y_origin) * 100
+        deformed_x, deformed_y = original_x + dx * factor * 100, original_y + dy * factor * 100
+        axis.plot(original_x, original_y, color="#94A3B8", linestyle="--", linewidth=1.3,
+                  label="Estrutura original" if index == 0 else None)
+        axis.plot(deformed_x, deformed_y, color="#2563D9", linewidth=2,
+                  label="Estrutura deformada" if index == 0 else None)
+        all_x.extend([*original_x, *deformed_x])
+        all_y.extend([*original_y, *deformed_y])
+
+    margin = span * 100 * 0.06
+    axis.set_xlim(min(all_x) - margin, max(all_x) + margin)
+    axis.set_ylim(min(all_y) - margin, max(all_y) + margin)
+    axis.set_aspect("equal", adjustable="box")
+    axis.xaxis.set_major_locator(MaxNLocator(nbins=8))
+    axis.yaxis.set_major_locator(MaxNLocator(nbins=6))
+    axis.set_xlabel("Comprimento (cm)")
+    axis.set_ylabel("Altura (cm)")
+    axis.set_title(f"Deformação · escala visual ×{factor:.3g}\nDeslocamento máximo real: {maximum * 1000:.4g} mm")
+    axis.grid(True, color="#D9DEE5", linestyle="--", linewidth=0.6, alpha=0.65)
+    axis.legend(loc="upper center", bbox_to_anchor=(0.5, -0.18), ncol=2, frameon=False)
+    figure.tight_layout()
+    if show:
+        plt.show()
+    return figure
+
+
 def plot_anastruct_result(
     analysis: AnastructModel,
     result: ResultPlot = "axial",

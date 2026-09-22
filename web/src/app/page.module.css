@@ -1,0 +1,21 @@
+.main { max-width: 1120px; margin: 0 auto; padding: 32px 28px; }
+.header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.brand { font-weight: 750; font-size: 1.15rem; letter-spacing: -.03em; }
+.badge { font-size: .8rem; background: #e3ebe5; color: #355342; padding: 8px 12px; border-radius: 100px; }
+.hero { padding: 100px 0 64px; max-width: 780px; }
+.eyebrow { color: #356747; text-transform: uppercase; letter-spacing: .15em; font-size: .75rem; font-weight: 700; margin-bottom: 22px; }
+.hero h1 { font-size: clamp(2.6rem, 6vw, 4.8rem); line-height: 1.06; letter-spacing: -.055em; font-weight: 650; }
+.intro { max-width: 580px; margin-top: 24px; font-size: 1.15rem; line-height: 1.7; color: #4d5f54; }
+.notice { margin-top: 32px; border-left: 3px solid #76977d; padding-left: 16px; max-width: 590px; color: #536058; font-size: .9rem; line-height: 1.6; }
+.sectionTitle { font-size: 1rem; margin-bottom: 20px; }
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; list-style: none; }
+.card { padding: 26px; border: 1px solid #dce3da; border-radius: 16px; background: #fffef9; }
+.number { font-size: .85rem; color: #54705b; }
+.card h3 { margin: 26px 0 12px; font-size: 1.15rem; }
+.card p { color: #536058; line-height: 1.65; font-size: .95rem; }
+.footer { margin-top: 64px; padding-top: 24px; border-top: 1px solid #dce3da; font-size: .8rem; color: #536058; }
+@media (max-width: 700px) {
+  .main { padding: 24px 20px; }
+  .hero { padding: 64px 0 44px; }
+  .steps { grid-template-columns: 1fr; }
+}

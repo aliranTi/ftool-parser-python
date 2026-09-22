@@ -45,6 +45,10 @@ htmlcov/
 .vscode/
 *.swp
 
+# Local agent context
+AGENTS.md
+CLAUDE.md
+
 # Environment files
 .env
 .env.*

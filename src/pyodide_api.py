@@ -15,7 +15,7 @@ from .parser import FtlParseError, FtlParser
 
 PYODIDE_API_SCHEMA = "ftool-parser-python.pyodide-response"
 PYODIDE_API_VERSION = 1
-PYODIDE_OPERATIONS = ("parse", "analyze_axial", "size_sticks")
+PYODIDE_OPERATIONS = ("parse", "analyze_axial", "size_sticks", "render_report")
 
 
 class PyodideRequestError(ValueError):
@@ -126,6 +126,10 @@ def handle_request(request: Mapping[str, Any]) -> dict[str, Any]:
                     include_samples=include_samples,
                 )
             }
+        elif operation == "render_report":
+            from .web_report import render_report
+
+            result = render_report(ftl_text, name=name)
         else:
             result = size_ftl_sticks(
                 ftl_text,

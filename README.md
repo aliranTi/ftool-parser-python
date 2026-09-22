@@ -1,5 +1,16 @@
 # ftool-parser-python
 
+## Interface web
+
+A interface Next.js, React e TypeScript fica em [`web/`](web/README.md).
+Para iniciar, execute `cd web`, `npm ci` e `npm run dev`, e acesse
+http://localhost:3000. O usuário pode importar um `.ftl`, conferir a prévia
+geométrica e confirmar a ponte ou escolher outro arquivo. A leitura usa o parser
+Python via Pyodide no navegador. Ao confirmar, a aplicação executa a análise e
+o dimensionamento, mostrando os mesmos gráficos do notebook nesta ordem:
+diagrama axial, deformação e quantidade de palitos. Os valores numéricos e as
+reações de apoio ficam disponíveis em uma seção expansível.
+
 Parser e conversor em Python para arquivos `.ftl` do FTool 4.00 e 4.01.
 
 O projeto lê o arquivo textual do FTool, reconstrói a topologia estrutural e
@@ -162,6 +173,7 @@ Operações aceitas:
 | `parse` | Modelo, geometria, apoios e cargas | somente o wheel deste projeto |
 | `analyze_axial` | Reações e forças axiais | NumPy, SciPy e anaStruct compatível |
 | `size_sticks` | Análise, dimensionamento e quantidades | NumPy, SciPy e anaStruct compatível |
+| `render_report` | Análise, quantidades e gráficos SVG em ordem: axial, deformação, palitos | NumPy, SciPy, Matplotlib e anaStruct compatível |
 
 Para incluir os pontos internos do diagrama axial, envie
 `options: {include_samples: true}`.
