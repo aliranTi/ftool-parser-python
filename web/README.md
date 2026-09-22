@@ -26,7 +26,7 @@ O build estático é gravado em `out/`.
 ## Publicação
 
 O workflow `.github/workflows/deploy-pages.yml` valida, exporta e publica o
-site no GitHub Pages a cada envio para `develop`. No repositório do GitHub,
+site no GitHub Pages a cada envio para `master`. No repositório do GitHub,
 selecione **Settings > Pages > Source > GitHub Actions** uma vez. A publicação
 ficará disponível em
 <https://aliranti.github.io/ftool-parser-python/>.
