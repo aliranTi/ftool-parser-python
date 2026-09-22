@@ -11,6 +11,18 @@ o dimensionamento, mostrando os mesmos gráficos do notebook nesta ordem:
 diagrama axial, deformação e quantidade de palitos. Os valores numéricos e as
 reações de apoio ficam disponíveis em uma seção expansível.
 
+## Organização do projeto
+
+- `src/`: parser FTL, modelo estrutural, anaStruct, dimensionamento e API Pyodide.
+- `tests/`: testes Python do parser, da análise e dos gráficos.
+- `inputs/`: arquivos FTL usados localmente pelos testes e pelo notebook.
+- `web/`: aplicação Next.js, prévia da ponte e integração no navegador.
+- `notebook.ipynb`: validação e exploração dos resultados.
+
+Diretórios como `build/`, `dist/`, `*.egg-info/`, `temp/` e checkpoints do
+Jupyter são artefatos locais ignorados pelo Git. Eles podem ser recriados pelos
+comandos de empacotamento ou pelos notebooks e não fazem parte do código-fonte.
+
 Parser e conversor em Python para arquivos `.ftl` do FTool 4.00 e 4.01.
 
 O projeto lê o arquivo textual do FTool, reconstrói a topologia estrutural e
