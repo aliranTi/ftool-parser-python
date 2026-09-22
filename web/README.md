@@ -45,6 +45,14 @@ esforços e reações ficam em uma seção expansível. Falhas mantêm a
 prévia e permitem tentar novamente. Trocar/remover o arquivo cancela a análise
 em andamento e limpa seus resultados.
 
+Depois da análise, `Abrir relatório completo` mostra uma tela própria com os
+gráficos, resumo da quantidade total e uma tabela por membro contendo comprimento,
+palitos, camadas, esforço médio e estado. Os comprimentos são exibidos em cm;
+as forças permanecem em N. O relatório inclui as reações
+de apoio e pode ser impresso em formato A4 pelo botão `Imprimir relatório`.
+Antes dos gráficos, os resultados e o relatório identificam o comprimento
+comercial do palito, a sobreposição nas emendas e as dimensões de cada seção.
+
 A deformação usa origem local `(0, 0)`, eixos em cm com proporção igual e
 escala visual automática: o maior deslocamento amostrado ocupa 8% do maior vão
 geométrico. O gráfico informa o fator aplicado e o deslocamento real em mm,

@@ -1,5 +1,6 @@
 import type { AxialAnalysis } from "@/lib/bridge-preview";
 import styles from "./ftl-upload.module.css";
+import { SizingContext } from "./sizing-context";
 
 const states = { tension: "Tração", compression: "Compressão", zero: "Nulo", mixed: "Misto" };
 const number = (n: number) => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 }).format(n);
@@ -8,6 +9,7 @@ export function AxialResults({ analysis }: { analysis: AxialAnalysis }) {
   return (
     <section aria-labelledby="analysis-title" className={styles.analysis}>
       <h3 id="analysis-title">Resultados da análise</h3>
+      <SizingContext analysis={analysis} />
       {analysis.charts.map((chart) => (
         <figure key={chart.id} className={styles.chart}>
           <h4>{chart.title}</h4>
@@ -28,10 +30,10 @@ export function AxialResults({ analysis }: { analysis: AxialAnalysis }) {
       <div className={styles.tableScroll} tabIndex={0} role="region" aria-label="Esforços por barra">
         <table>
           <caption>Esforços axiais por barra</caption>
-          <thead><tr><th>Barra</th><th>ID FTool</th><th>Comprimento (m)</th><th>Mínimo (N)</th><th>Máximo (N)</th><th>Estado</th></tr></thead>
+          <thead><tr><th>Barra</th><th>ID FTool</th><th>Comprimento (cm)</th><th>Esforço médio (N)</th><th>Estado</th></tr></thead>
           <tbody>{analysis.members.map((member) => <tr key={member.id}>
-            <th scope="row">{member.id}</th><td>{member.ftool_id}</td><td>{number(member.length)}</td>
-            <td>{number(member.axial_force.minimum)}</td><td>{number(member.axial_force.maximum)}</td><td>{states[member.axial_force.state]}</td>
+            <th scope="row">{member.id}</th><td>{member.ftool_id}</td><td>{number(member.length * 100)}</td>
+            <td>{number(member.axial_force.average)}</td><td>{states[member.axial_force.state]}</td>
           </tr>)}</tbody>
         </table>
       </div>

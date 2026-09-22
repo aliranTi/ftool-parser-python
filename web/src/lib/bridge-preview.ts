@@ -5,8 +5,27 @@ export type BridgeModel = {
 
 export type AxialAnalysis = {
   charts: { id: string; title: string; image: string }[];
-  stick_counts: { total_required_layers: number; total_physical_sticks: number };
-  members: { id: string; ftool_id: number; length: number; axial_force: { minimum: number; maximum: number; state: "tension" | "compression" | "zero" | "mixed" } }[];
+  stick_counts: {
+    total_required_layers: number;
+    total_physical_sticks: number;
+    commercial_stick_length_mm: number;
+    splice_overlap_mm: number;
+    members: {
+      id: string;
+      ftool_id: number;
+      length: number;
+      compression_demand: number;
+      tension_demand: number;
+      governing_mode: "compression" | "tension" | "minimum" | null;
+      required_layers: number | null;
+      sticks_per_layer: number | null;
+      total_sticks: number | null;
+      section_width_mm: number | null;
+      section_thickness_mm: number | null;
+      geometry_section_name: string | null;
+    }[];
+  };
+  members: { id: string; ftool_id: number; length: number; axial_force: { average: number; minimum: number; maximum: number; state: "tension" | "compression" | "zero" | "mixed" } }[];
   reactions: { node: string; fx: number; fy: number; moment: number }[];
 };
 

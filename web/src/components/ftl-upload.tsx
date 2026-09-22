@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { analyzeBridge, parseBridge, type AxialAnalysis, type BridgeModel } from "@/lib/bridge-preview";
 import { AxialResults } from "./axial-results";
+import { ReportView } from "./report-view";
 import { BridgePreview } from "./bridge-preview";
 import { readFtlFile, type ImportedFtl } from "@/lib/ftl-file";
 import styles from "./ftl-upload.module.css";
@@ -18,6 +19,7 @@ export function FtlUpload() {
   const [confirmed, setConfirmed] = useState(false);
   const [calculating, setCalculating] = useState(false);
   const [analysis, setAnalysis] = useState<AxialAnalysis | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
 
   useEffect(() => () => { active.current?.abort(); }, []);
 
@@ -31,6 +33,7 @@ export function FtlUpload() {
     setConfirmed(false);
     setCalculating(false);
     setAnalysis(null);
+    setReportOpen(false);
     setFile(null);
     setError("");
     setLoading(false);
@@ -63,6 +66,7 @@ export function FtlUpload() {
     setConfirmed(false);
     setCalculating(false);
     setAnalysis(null);
+    setReportOpen(false);
     setFile(null);
     setError("");
     setLoading(false);
@@ -132,7 +136,9 @@ export function FtlUpload() {
               <button type="button" onClick={() => input.current?.click()}>Escolher outro arquivo</button>
             <button type="button" onClick={removeFile}>Remover arquivo</button>
             </div>
-            {analysis && <AxialResults analysis={analysis} />}
+            {analysis && !reportOpen && <AxialResults analysis={analysis} />}
+            {analysis && !reportOpen && <button type="button" onClick={() => setReportOpen(true)}>Abrir relatório completo</button>}
+            {analysis && reportOpen && <ReportView analysis={analysis} fileName={file.name} onBack={() => setReportOpen(false)} />}
           </div>
         )}
       </div>

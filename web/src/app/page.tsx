@@ -32,7 +32,12 @@ export default function Home() {
           ))}
         </ol>
       </section>
-      <footer className={styles.footer}>Projeto independente, sem vínculo com o FTool / PUC-Rio.</footer>
+      <footer className={styles.footer}>
+        <p>Desenvolvido para Trabalho de Conclusão de Curso.</p>
+        <p>Autor: Antonio Joaquim de Lira Neto.</p>
+        <p>Orientador: Dr. Matheus Fernandes de Araujo Silva.</p>
+        <p>Projeto independente, sem vínculo com o FTool / PUC-Rio.</p>
+      </footer>
     </main>
   );
 }
