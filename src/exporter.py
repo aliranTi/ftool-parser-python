@@ -139,6 +139,7 @@ def _member_to_dict(
     axial_result: Dict[str, Any] = {
         "start": axial_values[0],
         "end": axial_values[-1],
+        "average": sum(axial_values) / len(axial_values),
         "minimum": minimum,
         "maximum": maximum,
         "state": _classify_axial_force(minimum, maximum),

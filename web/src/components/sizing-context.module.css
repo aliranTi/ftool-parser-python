@@ -1,0 +1,9 @@
+.context { margin: 20px 0 28px; padding: 20px; background: #f1f4ed; border: 1px solid #d4ddd2; border-radius: 12px; break-inside: avoid; }
+.context h4 { margin-bottom: 14px; font-size: 1.05rem; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.grid div { min-width: 0; }
+.grid dt { color: #536058; font-size: .8rem; }
+.grid dd { margin-top: 3px; font-weight: 700; }
+.sections { margin: 16px 0 0; padding-left: 20px; }
+.sections span { color: #536058; font-size: .85rem; }
+@media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
