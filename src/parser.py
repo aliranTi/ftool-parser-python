@@ -178,9 +178,12 @@ class FtlParser:
             is_rectangular = bool(section_flags and int(section_flags[0]) == 1)
             section = Section(
                 name=name,
-                area=values[0],
-                inertia=values[inertia_index],
-                height=height,
+                area=values[0] * values[1] if is_rectangular else values[0],
+                inertia=(
+                    values[0] * values[1] ** 3 / 12.0
+                    if is_rectangular else values[inertia_index]
+                ),
+                height=values[1] if is_rectangular else height,
                 width=values[0] if is_rectangular else 0.0,
                 thickness=values[1] if is_rectangular else 0.0,
             )

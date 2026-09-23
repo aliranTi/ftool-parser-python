@@ -764,10 +764,12 @@ def _config_for_member(
         )
 
     section = valid[0]
+    # Camadas coladas pelas faces largas: a menor dimensão é o incremento
+    # por camada, independentemente da orientação da seção no plano FTool.
     stick = replace(
         config.stick,
-        width_mm=section.width * 1_000.0,
-        thickness_mm=section.thickness * 1_000.0,
+        width_mm=max(section.width, section.thickness) * 1_000.0,
+        thickness_mm=min(section.width, section.thickness) * 1_000.0,
     )
     return replace(config, stick=stick), section.name
 
