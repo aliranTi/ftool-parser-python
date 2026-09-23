@@ -116,13 +116,24 @@ class AnastructConverter:
                 f"Barra {member.id}: seção {member.section_name!r} não encontrada"
             )
 
+        # Mesma compatibilidade do dimensionamento: arquivos antigos podem
+        # conter uma definição incompleta e outra válida com nome equivalente.
+        if section.area <= 0:
+            alternatives = [
+                candidate for candidate in self.model.sections
+                if candidate.name.casefold() == section.name.casefold()
+                and candidate.area > 0
+            ]
+            if len(alternatives) == 1:
+                section = alternatives[0]
+
         ea = material.elasticity * section.area
         ei = material.elasticity * section.inertia
         if ea <= self.ZERO_TOLERANCE:
             raise AnastructConversionError(f"Barra {member.id}: EA deve ser positivo")
 
         location = [[member.x1, member.y1], [member.x2, member.y2]]
-        is_truss = section.inertia <= self.ZERO_TOLERANCE or (
+        is_truss = section.inertia <= 0.0 or (
             member.hinge_start == 1 and member.hinge_end == 1
         )
 

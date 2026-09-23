@@ -552,7 +552,12 @@ cargas ficam ocultos nessa vista para evitar sobreposição; eles podem ser
 reativados com `show_load_values=True`.
 
 Quando `use_section_geometry=True`, a largura e a espessura são obtidas dos
-dois valores da seção retangular do `.ftl`. Se uma definição com o mesmo nome,
+dois valores da seção retangular do `.ftl`. O dimensionamento considera camadas
+coladas pelas faces largas: a maior dimensão é a largura e a menor é a
+espessura de cada camada. A orientação e a inércia da seção na análise
+estrutural continuam sendo as do arquivo. Para outro empilhamento, use
+`use_section_geometry=False` e informe `StickGeometry` explicitamente.
+Se uma definição com o mesmo nome,
 diferindo apenas por maiúsculas/minúsculas, estiver incompleta, o dimensionador
 usa a equivalente que possua ambas as dimensões positivas.
 
