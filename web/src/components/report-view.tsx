@@ -8,6 +8,14 @@ const states = { tension: "Tração", compression: "Compressão", zero: "Nulo", 
 const modes = { tension: "Tração", compression: "Compressão", minimum: "Mínimo" } as const;
 const number = (value: number) => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 }).format(value);
 
+function stateLabel(
+  state: keyof typeof states,
+  mode: keyof typeof modes | null | undefined,
+) {
+  if (!mode || mode === state) return states[state];
+  return `${states[state]} · ${modes[mode]}`;
+}
+
 export function ReportView({ analysis, fileName, onBack }: { analysis: AxialAnalysis; fileName: string; onBack: () => void }) {
   const stickById = new Map(analysis.stick_counts.members.map((member) => [member.id, member]));
 
@@ -55,7 +63,7 @@ export function ReportView({ analysis, fileName, onBack }: { analysis: AxialAnal
               <td>{sticks?.total_sticks ?? "—"}</td>
               <td>{sticks?.required_layers ?? "—"}</td>
               <td>{number(member.axial_force.average)}</td>
-              <td>{states[member.axial_force.state]}{sticks?.governing_mode ? ` · ${modes[sticks.governing_mode]}` : ""}</td>
+              <td>{stateLabel(member.axial_force.state, sticks?.governing_mode)}</td>
             </tr>;
           })}</tbody>
         </table>
