@@ -430,7 +430,11 @@ def check_compression_section(
         utilization_y=utilization_y,
         governing_axis=governing_axis,
         governing_utilization=governing_utilization,
-        passes=governing_utilization <= 1.0,
+        passes=(
+            governing_utilization <= 1.0
+            and slenderness_x <= 140.0
+            and slenderness_y <= 140.0
+        ),
     )
 
 
