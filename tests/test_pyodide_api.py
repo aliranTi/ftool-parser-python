@@ -68,8 +68,8 @@ class PyodideApiTest(unittest.TestCase):
         result = response["result"]
 
         self.assertTrue(response["ok"])
-        self.assertEqual(result["stick_counts"]["total_required_layers"], 144)
-        self.assertEqual(result["stick_counts"]["total_physical_sticks"], 408)
+        self.assertEqual(result["stick_counts"]["total_required_layers"], 154)
+        self.assertEqual(result["stick_counts"]["total_physical_sticks"], 430)
         self.assertEqual(len(result["analysis"]["members"]), 19)
 
     def test_invalid_request_returns_structured_error(self) -> None:

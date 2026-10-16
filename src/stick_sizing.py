@@ -93,7 +93,7 @@ class StickSizingConfig:
     design_force_factor: float = 1.0
     tension_force_factor: float = 1.0
     max_layers: int = 1_000
-    minimum_member_layers: int = 1
+    minimum_member_layers: int = 3
     use_section_geometry: bool = True
     splice_overlap_mm: float = 0.0
 

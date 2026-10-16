@@ -565,9 +565,10 @@ Para cada membro, `required_layers` é a quantidade transversal,
 `sticks_per_layer` é a quantidade longitudinal e `total_sticks` é o produto
 das duas. `total_physical_sticks` soma os palitos físicos dos membros. Essa é
 uma estimativa sem perdas de corte; ajuste `commercial_length_mm` e
-`splice_overlap_mm` para representar o material usado. Membros sem solicitação
-axial recebem `minimum_member_layers=1` por padrão, pois continuam existindo
-fisicamente na ponte.
+`splice_overlap_mm` para representar o material usado. Todas as barras recebem
+no mínimo `minimum_member_layers=3` para o amarramento na colagem, inclusive
+as sem solicitação axial. Quando o cálculo exige mais camadas, prevalece esse
+valor. Esse mínimo construtivo não verifica a resistência da junta colada.
 
 > Este cálculo é uma ferramenta de pré-dimensionamento baseada nas hipóteses
 > informadas. As propriedades reais devem ser obtidas por ensaio e os critérios
