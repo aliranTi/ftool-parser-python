@@ -20,6 +20,9 @@ export function SizingContext({ analysis }: { analysis: AxialAnalysis }) {
   return (
     <section className={styles.context} aria-labelledby="sizing-context-title">
       <h4 id="sizing-context-title">Dados avaliados</h4>
+      <p>Este relatório é válido apenas para uma face lateral da ponte, com a carga aplicada no modelo. A quantidade de palitos é estimada, não exata.</p>
+      <p>Estimativa para uma face: <strong>{number(analysis.stick_counts.total_physical_sticks)} palitos</strong>. Para duas faces iguais, sob as mesmas condições: <strong>{number(analysis.stick_counts.estimated_sticks_two_identical_faces)} palitos</strong>.</p>
+      <p>O total das duas faces não inclui tabuleiro, ligações entre faces, travamentos transversais ou perdas de corte. Essa soma não representa uma análise estrutural da ponte completa.</p>
       <dl className={styles.grid}>
         <div><dt>Comprimento comercial do palito</dt><dd>{number(analysis.stick_counts.commercial_stick_length_mm)} mm</dd></div>
         <div><dt>Sobreposição nas emendas</dt><dd>{number(analysis.stick_counts.splice_overlap_mm)} mm</dd></div>

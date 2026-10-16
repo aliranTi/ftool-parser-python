@@ -325,6 +325,7 @@ class StickSizingReport:
             "total_physical_sticks": self.total_physical_sticks,
             "total_required_layers": self.total_required_layers,
             "sized_member_count": self.sized_members,
+            "estimated_sticks_two_identical_faces": 2 * self.total_physical_sticks,
             "compression_member_count": self.compression_members,
             "tension_member_count": self.tension_members,
             "compressed_lamination_length_m": self.compressed_lamination_length_m,

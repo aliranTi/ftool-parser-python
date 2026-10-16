@@ -8,6 +8,7 @@ export type AxialAnalysis = {
   stick_counts: {
     total_required_layers: number;
     total_physical_sticks: number;
+    estimated_sticks_two_identical_faces: number;
     commercial_stick_length_mm: number;
     splice_overlap_mm: number;
     members: {

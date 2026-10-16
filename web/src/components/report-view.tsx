@@ -41,20 +41,20 @@ export function ReportView({ analysis, fileName, onBack }: { analysis: AxialAnal
             <figcaption>
               {chart.id === "axial" && "Forças em N e coordenadas em cm."}
               {chart.id === "displacement" && "Estrutura original e deformada, com escala visual informada no gráfico."}
-              {chart.id === "sticks" && `${analysis.stick_counts.total_physical_sticks} palitos físicos · ${analysis.stick_counts.total_required_layers} camadas.`}
+              {chart.id === "sticks" && `${analysis.stick_counts.total_physical_sticks} palitos estimados para uma face · ${analysis.stick_counts.total_required_layers} camadas.`}
             </figcaption>
           </figure>
         ))}
       </div>
       <div className={styles.summary}>
-        <div><span>Palitos físicos</span><strong>{analysis.stick_counts.total_physical_sticks}</strong></div>
-        <div><span>Camadas somadas</span><strong>{analysis.stick_counts.total_required_layers}</strong></div>
+        <div><span>Palitos estimados — uma face</span><strong>{analysis.stick_counts.total_physical_sticks}</strong></div>
+        <div><span>Camadas somadas — uma face</span><strong>{analysis.stick_counts.total_required_layers}</strong></div>
         <div><span>Membros analisados</span><strong>{analysis.members.length}</strong></div>
       </div>
       <div className={styles.tableWrap}>
         <table>
-          <caption>Dimensionamento e esforços por membro</caption>
-          <thead><tr><th>Membro</th><th>Comprimento (cm)</th><th>Palitos</th><th>Camadas</th><th>Esforço médio (N)</th><th>Estado</th></tr></thead>
+          <caption>Dimensionamento e esforços por membro — uma face</caption>
+          <thead><tr><th>Membro</th><th>Comprimento (cm)</th><th>Palitos estimados</th><th>Camadas</th><th>Esforço médio (N)</th><th>Estado</th></tr></thead>
           <tbody>{analysis.members.map((member) => {
             const sticks = stickById.get(member.id);
             return <tr key={member.id}>

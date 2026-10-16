@@ -19,7 +19,7 @@ export function AxialResults({ analysis }: { analysis: AxialAnalysis }) {
           <figcaption>
             {chart.id === "axial" && "Forças em N e coordenadas em cm. Positivo: tração; negativo: compressão."}
             {chart.id === "displacement" && "Origem local da ponte e eixos em cm. A escala visual e o deslocamento máximo real em mm estão indicados no gráfico."}
-            {chart.id === "sticks" && `Total: ${analysis.stick_counts.total_physical_sticks} palitos físicos e ${analysis.stick_counts.total_required_layers} camadas somadas entre as barras.`}
+            {chart.id === "sticks" && `Estimativa para uma face: ${analysis.stick_counts.total_physical_sticks} palitos e ${analysis.stick_counts.total_required_layers} camadas somadas entre as barras.`}
           </figcaption>
           <a href={chart.image} download={`${chart.id}.svg`}>Baixar gráfico SVG</a>
         </figure>
