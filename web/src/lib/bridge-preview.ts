@@ -1,9 +1,16 @@
+export type ParameterField = {
+  key: string; label: string; value: number; unit: string; group: string; edited?: boolean;
+  minimum: number; exclusive: boolean; integer: boolean;
+};
+
 export type BridgeModel = {
+  parameters?: ParameterField[];
   nodes: { id: number; x: number; y: number }[];
   members: { id: number; x1: number; y1: number; x2: number; y2: number }[];
 };
 
 export type AxialAnalysis = {
+  parameters?: ParameterField[];
   charts: { id: string; title: string; image: string }[];
   stick_counts: {
     total_required_layers: number;
@@ -34,11 +41,11 @@ export function parseBridge(text: string, signal: AbortSignal): Promise<BridgeMo
   return runBridge(text, signal, "parse") as Promise<BridgeModel>;
 }
 
-export function analyzeBridge(text: string, signal: AbortSignal): Promise<AxialAnalysis> {
-  return runBridge(text, signal, "render_report") as Promise<AxialAnalysis>;
+export function analyzeBridge(text: string, signal: AbortSignal, parameters: Record<string, number> = {}): Promise<AxialAnalysis> {
+  return runBridge(text, signal, "render_report", parameters) as Promise<AxialAnalysis>;
 }
 
-function runBridge(text: string, signal: AbortSignal, operation: "parse" | "render_report"): Promise<BridgeModel | AxialAnalysis> {
+function runBridge(text: string, signal: AbortSignal, operation: "parse" | "render_report", parameters: Record<string, number> = {}): Promise<BridgeModel | AxialAnalysis> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) { reject(new Error("Leitura cancelada.")); return; }
     const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
@@ -62,7 +69,7 @@ function runBridge(text: string, signal: AbortSignal, operation: "parse" | "rend
       finish();
       if (!data.ok) { reject(new Error(data.error?.message ?? "Arquivo FTL inválido.")); return; }
       if (operation === "render_report") {
-        resolve({ ...data.result.analysis, charts: data.result.charts, stick_counts: data.result.stick_counts } as AxialAnalysis);
+        resolve({ ...data.result.analysis, parameters: data.result.parameters, charts: data.result.charts, stick_counts: data.result.stick_counts } as AxialAnalysis);
         return;
       }
       const model = data.result.model as BridgeModel;
@@ -75,8 +82,8 @@ function runBridge(text: string, signal: AbortSignal, operation: "parse" | "rend
         reject(new Error("A estrutura contém coordenadas inválidas."));
         return;
       }
-      resolve(model);
+      resolve({ ...model, parameters: data.result.parameters });
     };
-    worker.postMessage({ text, operation });
+    worker.postMessage({ text, operation, parameters });
   });
 }

@@ -36,6 +36,15 @@ export function SizingContext({ analysis }: { analysis: AxialAnalysis }) {
           </li>
         ))}
       </ul>
+      {analysis.parameters && <details open>
+        <summary>Parâmetros utilizados no cálculo</summary>
+        <dl className={styles.grid}>
+          {analysis.parameters.map((field) => <div key={field.key}>
+            <dt>{field.group} — {field.label}</dt>
+            <dd>{number(field.value)} {field.unit}{field.edited ? " (editado)" : ""}</dd>
+          </div>)}
+        </dl>
+      </details>}
     </section>
   );
 }
