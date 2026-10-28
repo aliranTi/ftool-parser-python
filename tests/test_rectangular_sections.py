@@ -5,7 +5,7 @@ from src.parser import FtlParser
 from src.converter_anastruct import to_anastruct
 from src.models import FtoolModel, Material, Member, Node, PointLoad, Section, Support
 from src.stick_sizing import (
-    StickSizingConfig, check_compression_section, size_axial_members,
+    StickSizingError, check_compression_section, size_axial_members,
 )
 
 
@@ -51,21 +51,28 @@ class RectangularSectionsTest(unittest.TestCase):
     def test_ponte_4_equilibrium_and_axial_forces(self):
         model = FtlParser('inputs/ponte_4.ftl').parse()
         analysis = to_anastruct(model, solve=True)
-        report = size_axial_members(model, analysis)
+        self.assertEqual((len(model.nodes), len(model.members), len(model.dimensions)), (13, 23, 4))
+        self.assertEqual(sum(n.load.fy for n in model.nodes if n.load), -2000)
         for axis, load_attr in [('Fx', 'fx'), ('Fy', 'fy')]:
             reactions = sum(analysis.get_reaction_results(n.id)[axis]
                             for n in model.nodes if not n.support.is_free)
             applied = sum(getattr(n.load, load_attr) for n in model.nodes if n.load)
             self.assertAlmostEqual(reactions + applied, 0, delta=1e-6)
-        # Central top chord: moment 700 * 1.08 / 4, divided by height 0.24.
-        self.assertAlmostEqual(min(b.axial_min_n for b in report.members),
-                               -700 * 1.08 / (4 * 0.24), delta=1e-3)
-        self.assertEqual(report.total_physical_sticks, 114)
-        self.assertEqual(report.total_required_layers, 38)
-        self.assertTrue(all(b.check.passes for b in report.members if b.check))
+        # Central top chord: M = P*L/4; N = -M/h.
+        forces = [analysis.get_member_results(b.id)['Nmin'] for b in model.members]
+        self.assertAlmostEqual(min(forces), -2000 * 1.08 / (4 * 0.36), delta=1e-3)
+        with self.assertRaisesRegex(StickSizingError, '1000 camadas'):
+            size_axial_members(model, analysis)
 
     def test_layers_follow_wide_faces_in_both_section_orientations(self):
-        model = FtlParser('inputs/ponte_4.ftl').parse()
+        model = FtoolModel(
+            materials=[Material('wood', 13e9, 0.3, 0, 0)],
+            sections=[Section('stick', 1.66452e-5, 1.0211330844e-10,
+                              width=0.00194, thickness=0.00858)],
+            nodes=[Node(1, 0, 0, Support(1, 1, 1)),
+                   Node(2, 0.1, 0, load=PointLoad('tip', 100, 0, 0))],
+            members=[Member(1, 0, 0, 0.1, 0, 'wood', 'stick', 1, 2)],
+        )
         analysis = to_anastruct(model, solve=True)
         before = size_axial_members(model, analysis)
         section = model.sections[0]
@@ -76,16 +83,12 @@ class RectangularSectionsTest(unittest.TestCase):
             self.assertAlmostEqual(member.section_width_mm, 8.58)
             self.assertAlmostEqual(member.section_thickness_mm, 1.94)
 
-    def test_four_layers_do_not_pass_central_chord_at_700_n(self):
+    def test_ponte_4_diagonal_exceeds_slenderness_limit(self):
         model = FtlParser('inputs/ponte_4.ftl').parse()
         analysis = to_anastruct(model, solve=True)
-        report = size_axial_members(model, analysis)
-        central = next(b for b in report.members if b.ftool_id == 17)
-        self.assertEqual(central.required_layers, 6)
-        check = check_compression_section(
-            central.compression_demand_n, central.member_length_m, 4,
-            StickSizingConfig(),
-        )
-        self.assertAlmostEqual(check.area_mm2, 8.58 * 4 * 1.94)
-        self.assertFalse(check.passes)
-        self.assertGreater(check.governing_utilization, 1.7)
+        diagonal = next(b for b in model.members if b.id == 62)
+        demand = -analysis.get_member_results(diagonal.id)['Nmin']
+        for layers in (4, 1000):
+            check = check_compression_section(demand, diagonal.length, layers)
+            self.assertAlmostEqual(check.slenderness_y, 149.82017682257725, places=6)
+            self.assertFalse(check.passes)

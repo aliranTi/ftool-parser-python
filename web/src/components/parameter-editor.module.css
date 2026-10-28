@@ -1,0 +1,9 @@
+.editor { margin: 24px 0; padding: 20px; border: 1px solid #d4ddd2; border-radius: 12px; background: #f1f4ed; }
+.editor p { margin: 12px 0; line-height: 1.5; }
+.editor fieldset { margin: 20px 0; padding: 16px; border: 1px solid #b8c7b9; border-radius: 8px; min-width: 0; }
+.editor legend { font-weight: 700; padding: 0 6px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; }
+.grid label { display: grid; gap: 6px; font-size: .9rem; }
+.grid input { width: 100%; min-width: 0; padding: 10px; border: 1px solid #76977d; border-radius: 6px; font: inherit; color: #203f2c; background: white; }
+.grid input:focus-visible { outline: 2px solid #203f2c; outline-offset: 2px; }
+@media (max-width: 500px) { .grid { grid-template-columns: 1fr; } }

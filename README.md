@@ -648,6 +648,27 @@ ftool-parser-python/
 - O arquivo `.ftl` é um formato proprietário e não possui especificação pública
   oficial; compatibilidade com variantes antigas ou futuras não é garantida.
 
+## Parâmetros editáveis na web
+
+Após importar, confira a geometria e edite os parâmetros antes de confirmar.
+É possível ajustar dimensões b/h, área e inércia por seção, E por material,
+propriedades da madeira, coeficientes, mínimo de camadas, comprimento comercial
+e sobreposição. Editar um campo invalida a análise anterior; restaurar volta
+aos valores do arquivo e aos padrões do dimensionamento.
+
+O Python recalcula área e inércia quando b/h mudam. Valores manuais de área e
+inércia prevalecem apenas na análise estrutural. A contagem de palitos continua
+usando as dimensões da seção e o empilhamento pelas faces largas. E da análise
+e E médio para flambagem são parâmetros independentes.
+
+A API aceita `options.parameters` como mapa de campos alterados, por exemplo
+`{"sections.1.width_mm": 8.5, "minimum_member_layers": 4, "wood.kmod1": 1.1}`.
+Os índices de seção/material são baseados em zero. `parse` devolve a lista
+`parameters` com valores iniciais, unidades e restrições, sem carregar pacotes
+científicos. Relatórios devolvem os valores efetivos e marcam campos editados.
+Requisições sem parâmetros preservam o comportamento anterior. O FTL original
+não é modificado e `config/optimization.json` não participa deste fluxo.
+
 ## Próximos passos
 
 - Expor cargas distribuídas, lineares, térmicas e momentos de extremidade.

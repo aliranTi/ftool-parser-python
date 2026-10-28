@@ -4,7 +4,7 @@ import base64
 from io import BytesIO
 
 
-def render_report(ftl_text: str, *, name: str | None = None) -> dict:
+def render_report(ftl_text: str, *, name: str | None = None, parameters=None) -> dict:
     import matplotlib
 
     matplotlib.use("Agg")
@@ -16,9 +16,12 @@ def render_report(ftl_text: str, *, name: str | None = None) -> dict:
     from .stick_sizing import size_axial_members
     from .visualizer import plot_axial_forces, plot_displacements, plot_stick_sizing
 
+    from .analysis_parameters import apply_parameters, parameter_fields
+
     model = parse_ftl_text(ftl_text)
+    config = apply_parameters(model, parameters)
     analysis = to_anastruct(model, solve=True)
-    sizing = size_axial_members(model, analysis)
+    sizing = size_axial_members(model, analysis, config)
     plots = [
         ("axial", "Diagrama axial", lambda: plot_axial_forces(
             model, analysis, show=False, force_unit="N", length_unit="cm", decimals=3,
@@ -50,4 +53,5 @@ def render_report(ftl_text: str, *, name: str | None = None) -> dict:
         "analysis": axial_analysis_to_dict(model, analysis, name=name),
         "stick_counts": sizing.counts_to_dict(),
         "charts": charts,
+        "parameters": parameter_fields(model, config, parameters),
     }

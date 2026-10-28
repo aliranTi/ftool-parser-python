@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { analyzeBridge, parseBridge, type AxialAnalysis, type BridgeModel } from "@/lib/bridge-preview";
+import { ParameterEditor, readParameters } from "./parameter-editor";
 import { AxialResults } from "./axial-results";
 import { ReportView } from "./report-view";
 import { BridgePreview } from "./bridge-preview";
@@ -19,6 +20,7 @@ export function FtlUpload() {
   const [confirmed, setConfirmed] = useState(false);
   const [calculating, setCalculating] = useState(false);
   const [analysis, setAnalysis] = useState<AxialAnalysis | null>(null);
+  const [parameterEdits, setParameterEdits] = useState<Record<string, string>>({});
   const [reportOpen, setReportOpen] = useState(false);
 
   useEffect(() => () => { active.current?.abort(); }, []);
@@ -30,6 +32,7 @@ export function FtlUpload() {
     const controller = new AbortController();
     active.current = controller;
     setModel(null);
+    setParameterEdits({});
     setConfirmed(false);
     setCalculating(false);
     setAnalysis(null);
@@ -63,6 +66,7 @@ export function FtlUpload() {
     request.current++;
     active.current?.abort();
     setModel(null);
+    setParameterEdits({});
     setConfirmed(false);
     setCalculating(false);
     setAnalysis(null);
@@ -76,6 +80,9 @@ export function FtlUpload() {
 
   async function confirmBridge() {
     if (!file || calculating || analysis) return;
+    let parameters: Record<string, number>;
+    try { parameters = readParameters(model?.parameters ?? [], parameterEdits); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Parâmetros inválidos."); return; }
     const current = ++request.current;
     active.current?.abort();
     const controller = new AbortController();
@@ -84,7 +91,7 @@ export function FtlUpload() {
     setCalculating(true);
     setError("");
     try {
-      const result = await analyzeBridge(file.text, controller.signal);
+      const result = await analyzeBridge(file.text, controller.signal, parameters);
       if (current === request.current && !controller.signal.aborted) setAnalysis(result);
     } catch (cause) {
       if (current === request.current && !controller.signal.aborted) {
@@ -131,11 +138,19 @@ export function FtlUpload() {
             <p>{confirmed ? "Ponte confirmada." : "Confira se a geometria abaixo corresponde à ponte que você deseja analisar."}</p>
             {calculating && <p>Calculando a estrutura… O primeiro cálculo pode levar alguns instantes para carregar os recursos necessários.</p>}
             {model && <BridgePreview model={model} />}
+            <form onSubmit={(event) => { event.preventDefault(); void confirmBridge(); }}>
+            {model?.parameters && <ParameterEditor fields={model.parameters} edits={parameterEdits} disabled={calculating}
+              onChange={(key, value) => {
+                setParameterEdits((previous) => ({ ...previous, [key]: value }));
+                setAnalysis(null); setConfirmed(false); setReportOpen(false); setError("");
+              }}
+              onReset={() => { setParameterEdits({}); setAnalysis(null); setConfirmed(false); setReportOpen(false); setError(""); }} />}
             <div className={styles.actions}>
-              <button type="button" disabled={calculating || !!analysis} onClick={() => void confirmBridge()}>{calculating ? "Calculando…" : analysis ? "Análise concluída" : confirmed ? "Tentar cálculo novamente" : "Confirmar esta ponte"}</button>
+              <button type="submit" disabled={calculating || !!analysis}>{calculating ? "Calculando…" : analysis ? "Análise concluída" : confirmed ? "Tentar cálculo novamente" : "Confirmar esta ponte"}</button>
               <button type="button" onClick={() => input.current?.click()}>Escolher outro arquivo</button>
             <button type="button" onClick={removeFile}>Remover arquivo</button>
             </div>
+            </form>
             {analysis && !reportOpen && <AxialResults analysis={analysis} />}
             {analysis && !reportOpen && <button type="button" onClick={() => setReportOpen(true)}>Abrir relatório completo</button>}
             {analysis && reportOpen && <ReportView analysis={analysis} fileName={file.name} onBack={() => setReportOpen(false)} />}

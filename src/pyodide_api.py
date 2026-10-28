@@ -9,6 +9,7 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
+from .analysis_parameters import ParameterError, apply_parameters, parameter_fields
 from .models import FtoolModel
 from .parser import FtlParseError, FtlParser
 
@@ -33,6 +34,7 @@ def analyze_ftl_text(
     *,
     name: str | None = None,
     include_samples: bool = False,
+    parameters: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Resolve o modelo e devolve a análise axial serializável."""
 
@@ -40,6 +42,7 @@ def analyze_ftl_text(
     from .exporter import axial_analysis_to_dict
 
     model = parse_ftl_text(ftl_text)
+    apply_parameters(model, parameters)
     analysis = to_anastruct(model, solve=True)
     return axial_analysis_to_dict(
         model,
@@ -54,6 +57,7 @@ def size_ftl_sticks(
     *,
     name: str | None = None,
     include_samples: bool = False,
+    parameters: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Resolve, dimensiona os palitos e devolve apenas dados JSON nativos."""
 
@@ -62,8 +66,9 @@ def size_ftl_sticks(
     from .stick_sizing import size_axial_members
 
     model = parse_ftl_text(ftl_text)
+    config = apply_parameters(model, parameters)
     analysis = to_anastruct(model, solve=True)
-    report = size_axial_members(model, analysis)
+    report = size_axial_members(model, analysis, config)
     return {
         "analysis": axial_analysis_to_dict(
             model,
@@ -73,6 +78,7 @@ def size_ftl_sticks(
         ),
         "stick_sizing": report.to_dict(),
         "stick_counts": report.counts_to_dict(),
+        "parameters": parameter_fields(model, config, parameters),
     }
 
 
@@ -117,6 +123,7 @@ def handle_request(request: Mapping[str, Any]) -> dict[str, Any]:
                     "section_count": len(model.sections),
                 },
                 "model": model.to_dict(),
+                "parameters": parameter_fields(model),
             }
         elif operation == "analyze_axial":
             result = {
@@ -124,21 +131,23 @@ def handle_request(request: Mapping[str, Any]) -> dict[str, Any]:
                     ftl_text,
                     name=name,
                     include_samples=include_samples,
+                    parameters=options.get("parameters"),
                 )
             }
         elif operation == "render_report":
             from .web_report import render_report
 
-            result = render_report(ftl_text, name=name)
+            result = render_report(ftl_text, name=name, parameters=options.get("parameters"))
         else:
             result = size_ftl_sticks(
                 ftl_text,
                 name=name,
                 include_samples=include_samples,
+                parameters=options.get("parameters"),
             )
 
         return _success_response(operation, result)
-    except PyodideRequestError as exc:
+    except (PyodideRequestError, ParameterError) as exc:
         return _error_response(operation, "invalid_request", exc)
     except FtlParseError as exc:
         return _error_response(operation, "parse_error", exc)

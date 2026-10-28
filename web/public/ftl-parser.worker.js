@@ -26,7 +26,7 @@ self.onmessage = async ({ data }) => {
       pyodide.FS.writeFile(`/app/src/${name}`, content);
     }
     pyodide.runPython("import sys\nsys.path.insert(0, '/app')\nfrom src.pyodide_api import handle_request_json");
-    pyodide.globals.set("request_json", JSON.stringify({ operation: data.operation, ftl_text: data.text }));
+    pyodide.globals.set("request_json", JSON.stringify({ operation: data.operation, ftl_text: data.text, options: { parameters: data.parameters ?? {} } }));
     const result = JSON.parse(pyodide.runPython("handle_request_json(request_json)"));
     self.postMessage(result);
   } catch {
